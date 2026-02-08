@@ -39,7 +39,6 @@
 ;;; Code:
 
 (require 'magit)
-(require 'seq)
 
 (defgroup magit-standup nil
   "Collect recent git commits for standup notes."
