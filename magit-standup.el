@@ -118,6 +118,22 @@ BRANCH-COMMITS is an alist of (BRANCH-NAME . COMMITS)."
    repo-commits
    "\n"))
 
+(defun magit-standup--gather ()
+  "Gather recent commits across all configured repositories.
+Returns an alist of (REPO-NAME . BRANCH-COMMITS) suitable for
+`magit-standup--format-org'."
+  (let* ((since-date (magit-standup--since-date))
+         (author (or magit-standup-author
+                     (magit-git-string "config" "user.email")
+                     (user-error "Cannot determine author; set `magit-standup-author' or git config user.email")))
+         (repos (or magit-standup-repos
+                    (list (magit-toplevel)))))
+    (mapcar (lambda (repo)
+              (cons (file-name-nondirectory
+                     (directory-file-name repo))
+                    (magit-standup--collect-commits repo since-date author)))
+            repos)))
+
 ;;;###autoload
 (defun magit-standup ()
   "Display recent git commits as `org-mode' standup notes.
@@ -125,18 +141,7 @@ Collects commits from all repos in `magit-standup-repos' (or the
 current repo if that is nil) and displays them in a
 `*magit-standup*' buffer."
   (interactive)
-  (let* ((since-date (magit-standup--since-date))
-         (author (or magit-standup-author
-                     (magit-git-string "config" "user.email")
-                     (user-error "Cannot determine author; set `magit-standup-author' or git config user.email")))
-         (repos (or magit-standup-repos
-                    (list (magit-toplevel))))
-         (repo-commits
-          (mapcar (lambda (repo)
-                    (cons (file-name-nondirectory
-                           (directory-file-name repo))
-                          (magit-standup--collect-commits repo since-date author)))
-                  repos))
+  (let* ((repo-commits (magit-standup--gather))
          (buf (get-buffer-create "*magit-standup*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))

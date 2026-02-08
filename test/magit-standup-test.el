@@ -52,6 +52,18 @@
                  (lambda () (encode-time 0 0 12 7 1 2026))))
         (expect (magit-standup--since-date) :to-equal "2025-12-31")))))
 
+(describe "magit-standup--collect-commits"
+  (it "sets default-directory to the repo path"
+    (let (captured-dirs)
+      (spy-on 'magit-git-lines :and-call-fake
+              (lambda (&rest _)
+                (push default-directory captured-dirs)
+                nil))
+      (magit-standup--collect-commits "/tmp/my-repo" "2026-01-05" "alice")
+      (expect captured-dirs :not :to-be nil)
+      (dolist (dir captured-dirs)
+        (expect dir :to-equal "/tmp/my-repo/")))))
+
 (describe "magit-standup--format-org"
   (it "formats branch commits with subheadings"
     (expect (magit-standup--format-org
@@ -89,5 +101,47 @@
             (concat "* repo-a\n** ~main~\n- abc Fix thing\n"
                     "\n"
                     "* repo-b\n** ~develop~\n- def Other thing\n"))))
+
+(describe "magit-standup--gather"
+  (before-each
+    (spy-on 'magit-standup--since-date :and-return-value "2026-01-05")
+    (spy-on 'magit-standup--collect-commits :and-return-value
+            '(("main" . ("abc Fix thing")))))
+
+  (it "uses magit-standup-author when set"
+    (let ((magit-standup-repos '("/tmp/repo")))
+      (spy-on 'magit-git-string)
+      (let ((magit-standup-author "alice"))
+        (magit-standup--gather))
+      (expect 'magit-standup--collect-commits
+              :to-have-been-called-with "/tmp/repo" "2026-01-05" "alice")
+      (expect 'magit-git-string :not :to-have-been-called)))
+
+  (it "falls back to git config user.email"
+    (let ((magit-standup-repos '("/tmp/repo"))
+          (magit-standup-author nil))
+      (spy-on 'magit-git-string :and-return-value "bob@example.com")
+      (magit-standup--gather)
+      (expect 'magit-standup--collect-commits
+              :to-have-been-called-with "/tmp/repo" "2026-01-05" "bob@example.com")))
+
+  (it "signals error when no author can be determined"
+    (let ((magit-standup-repos '("/tmp/repo"))
+          (magit-standup-author nil))
+      (spy-on 'magit-git-string :and-return-value nil)
+      (expect (magit-standup--gather) :to-throw 'user-error)))
+
+  (it "uses magit-standup-repos when set"
+    (let ((magit-standup-repos '("/tmp/a" "/tmp/b"))
+          (magit-standup-author "alice"))
+      (let ((result (magit-standup--gather)))
+        (expect (mapcar #'car result) :to-equal '("a" "b")))))
+
+  (it "falls back to magit-toplevel when repos is nil"
+    (let ((magit-standup-repos nil)
+          (magit-standup-author "alice"))
+      (spy-on 'magit-toplevel :and-return-value "/home/user/my-project")
+      (let ((result (magit-standup--gather)))
+        (expect (mapcar #'car result) :to-equal '("my-project"))))))
 
 ;;; magit-standup-test.el ends here
