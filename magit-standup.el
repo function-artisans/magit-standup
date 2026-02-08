@@ -81,24 +81,37 @@ today is Monday use last Friday; else use yesterday."
 
 (defun magit-standup--collect-commits (repo-path since-date author)
   "Collect commits from REPO-PATH since SINCE-DATE by AUTHOR.
-Returns a list of commit message strings."
+Returns an alist of (BRANCH-NAME . COMMITS) where COMMITS is a
+list of commit message strings."
   (let ((default-directory (file-name-as-directory repo-path)))
-    (magit-git-lines "log" "--oneline" "--all" "--reflog"
-                     (concat "--after=" since-date)
-                     (concat "--author=" author))))
+    (let ((branches (magit-git-lines "branch" "--format=%(refname:short)")))
+      (mapcar (lambda (branch)
+                (cons branch
+                      (magit-git-lines "log" "--oneline"
+                                       (concat "--after=" since-date)
+                                       (concat "--author=" author)
+                                       branch)))
+              branches))))
 
 (defun magit-standup--format-org (repo-commits)
   "Format REPO-COMMITS as `org-mode' text.
-REPO-COMMITS is an alist of (REPO-NAME . COMMITS) where each
-COMMITS is a list of commit message strings."
+REPO-COMMITS is an alist of (REPO-NAME . BRANCH-COMMITS) where
+BRANCH-COMMITS is an alist of (BRANCH-NAME . COMMITS)."
   (mapconcat
    (lambda (entry)
-     (let ((repo-name (car entry))
-           (commits (cdr entry)))
-       (if commits
+     (let* ((repo-name (car entry))
+            (branch-commits (cdr entry))
+            (active (seq-filter #'cdr branch-commits)))
+       (if active
            (concat "* " repo-name "\n"
-                   (mapconcat (lambda (c) (concat "- " c)) commits "\n")
-                   "\n")
+                   (mapconcat
+                    (lambda (bc)
+                      (concat "** ~" (car bc) "~\n"
+                              (mapconcat (lambda (c) (concat "- " c))
+                                         (cdr bc) "\n")
+                              "\n"))
+                    active
+                    "\n"))
          (concat "* " repo-name "\n- (no commits)\n"))))
    repo-commits
    "\n"))

@@ -53,26 +53,41 @@
         (expect (magit-standup--since-date) :to-equal "2025-12-31")))))
 
 (describe "magit-standup--format-org"
-  (it "formats repo with commits as org headings"
+  (it "formats branch commits with subheadings"
     (expect (magit-standup--format-org
-             '(("my-repo" . ("abc123 Fix bug"
-                              "def456 Add feature"))))
+             '(("my-repo" . (("main" . ("abc123 Fix bug"
+                                         "def456 Add feature"))))))
             :to-equal
-            "* my-repo\n- abc123 Fix bug\n- def456 Add feature\n"))
+            "* my-repo\n** ~main~\n- abc123 Fix bug\n- def456 Add feature\n"))
 
-  (it "shows placeholder when repo has no commits"
+  (it "shows placeholder when all branches have no commits"
     (expect (magit-standup--format-org
-             '(("empty-repo")))
+             '(("empty-repo" . (("main") ("develop")))))
             :to-equal
             "* empty-repo\n- (no commits)\n"))
 
+  (it "skips branches with no commits"
+    (expect (magit-standup--format-org
+             '(("my-repo" . (("main" . ("abc Fix thing"))
+                              ("stale-branch")))))
+            :to-equal
+            "* my-repo\n** ~main~\n- abc Fix thing\n"))
+
+  (it "shows multiple branches under one repo"
+    (expect (magit-standup--format-org
+             '(("my-repo" . (("main" . ("abc Fix thing"))
+                              ("feature" . ("def Add thing"))))))
+            :to-equal
+            (concat "* my-repo\n** ~main~\n- abc Fix thing\n"
+                    "\n** ~feature~\n- def Add thing\n")))
+
   (it "separates multiple repos with blank lines"
     (expect (magit-standup--format-org
-             '(("repo-a" . ("abc Fix thing"))
-               ("repo-b" . ("def Other thing"))))
+             '(("repo-a" . (("main" . ("abc Fix thing"))))
+               ("repo-b" . (("develop" . ("def Other thing"))))))
             :to-equal
-            (concat "* repo-a\n- abc Fix thing\n"
+            (concat "* repo-a\n** ~main~\n- abc Fix thing\n"
                     "\n"
-                    "* repo-b\n- def Other thing\n"))))
+                    "* repo-b\n** ~develop~\n- def Other thing\n"))))
 
 ;;; magit-standup-test.el ends here
