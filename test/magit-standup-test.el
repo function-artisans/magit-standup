@@ -64,6 +64,71 @@
       (dolist (dir captured-dirs)
         (expect dir :to-equal "/tmp/my-repo/")))))
 
+(describe "magit-standup--resolve-repos"
+  :var (tmpdir)
+
+  (before-each
+    (setq tmpdir (make-temp-file "standup-test-" t))
+    ;; Create a git repo at tmpdir/repo-a
+    (let ((repo-a (expand-file-name "repo-a" tmpdir)))
+      (make-directory repo-a)
+      (make-directory (expand-file-name ".git" repo-a)))
+    ;; Create a git repo at tmpdir/repo-b
+    (let ((repo-b (expand-file-name "repo-b" tmpdir)))
+      (make-directory repo-b)
+      (make-directory (expand-file-name ".git" repo-b)))
+    ;; Create a non-repo dir with a nested repo at tmpdir/parent/nested
+    (let ((nested (expand-file-name "parent/nested" tmpdir)))
+      (make-directory nested t)
+      (make-directory (expand-file-name ".git" nested)))
+    ;; Create a hidden dir with a repo inside (should be skipped)
+    (let ((hidden (expand-file-name ".hidden/secret-repo" tmpdir)))
+      (make-directory hidden t)
+      (make-directory (expand-file-name ".git" hidden))))
+
+  (after-each
+    (delete-directory tmpdir t))
+
+  (it "returns nil for nil input"
+    (let ((magit-standup-repos-max-depth 1))
+      (expect (magit-standup--resolve-repos nil) :to-be nil)))
+
+  (it "returns a git repo directory as-is"
+    (let ((magit-standup-repos-max-depth 1)
+          (repo-a (expand-file-name "repo-a" tmpdir)))
+      (expect (magit-standup--resolve-repos (list repo-a))
+              :to-equal (list repo-a))))
+
+  (it "discovers repos in immediate subdirectories"
+    (let ((magit-standup-repos-max-depth 1))
+      (let ((result (sort (magit-standup--resolve-repos (list tmpdir)) #'string<)))
+        (expect result :to-equal
+                (sort (list (expand-file-name "repo-a" tmpdir)
+                            (expand-file-name "repo-b" tmpdir))
+                      #'string<)))))
+
+  (it "discovers nested repos with sufficient depth"
+    (let ((magit-standup-repos-max-depth 2))
+      (let ((result (sort (magit-standup--resolve-repos (list tmpdir)) #'string<)))
+        (expect result :to-contain
+                (expand-file-name "parent/nested" tmpdir)))))
+
+  (it "stops at depth 0"
+    (let ((magit-standup-repos-max-depth 0))
+      (expect (magit-standup--resolve-repos (list tmpdir)) :to-be nil)))
+
+  (it "searches unlimited depth when max-depth is nil"
+    (let ((magit-standup-repos-max-depth nil))
+      (let ((result (magit-standup--resolve-repos (list tmpdir))))
+        (expect result :to-contain
+                (expand-file-name "parent/nested" tmpdir)))))
+
+  (it "skips hidden directories"
+    (let ((magit-standup-repos-max-depth nil))
+      (let ((result (magit-standup--resolve-repos (list tmpdir))))
+        (expect result :not :to-contain
+                (expand-file-name ".hidden/secret-repo" tmpdir))))))
+
 (describe "magit-standup--format-org"
   (it "formats branch commits with subheadings"
     (expect (magit-standup--format-org
@@ -106,7 +171,8 @@
   (before-each
     (spy-on 'magit-standup--since-date :and-return-value "2026-01-05")
     (spy-on 'magit-standup--collect-commits :and-return-value
-            '(("main" . ("abc Fix thing")))))
+            '(("main" . ("abc Fix thing"))))
+    (spy-on 'magit-standup--resolve-repos :and-call-fake #'identity))
 
   (it "uses magit-standup-author when set"
     (let ((magit-standup-repos '("/tmp/repo")))

@@ -48,8 +48,17 @@
 
 (defcustom magit-standup-repos nil
   "List of directory paths to collect commits from.
-When nil, only the current repository is used."
+When nil, only the current repository is used.  Entries that are
+not git repositories are searched recursively for nested repos,
+up to `magit-standup-repos-max-depth' levels deep."
   :type '(repeat directory)
+  :group 'magit-standup)
+
+(defcustom magit-standup-repos-max-depth 1
+  "Maximum depth to search for git repositories in non-repo directories.
+When nil, search with unlimited depth."
+  :type '(choice (const :tag "Unlimited" nil)
+          (integer :tag "Max depth"))
   :group 'magit-standup)
 
 (defcustom magit-standup-author nil
@@ -80,6 +89,31 @@ today is Monday use last Friday; else use yesterday."
     (format-time-string "%Y-%m-%d"
                         (time-subtract now
                                        (days-to-time days-ago)))))
+
+(defun magit-standup--git-repo-p (dir)
+  "Return non-nil if DIR contains a `.git' directory or file."
+  (file-directory-p (expand-file-name ".git" dir)))
+
+(defun magit-standup--find-repos (dir depth)
+  "Recursively find git repositories under DIR up to DEPTH levels.
+When DEPTH is nil, search with unlimited depth.  Hidden
+directories are skipped."
+  (cond
+   ((magit-standup--git-repo-p dir) (list dir))
+   ((and depth (<= depth 0)) nil)
+   (t (mapcan (lambda (child)
+                (when (and (file-directory-p child)
+                           (not (string-prefix-p "." (file-name-nondirectory child))))
+                  (magit-standup--find-repos child (and depth (1- depth)))))
+              (directory-files dir t nil t)))))
+
+(defun magit-standup--resolve-repos (dirs)
+  "Expand DIRS to a list of git repository paths.
+Entries that are already git repos are kept as-is.  Others are
+searched recursively up to `magit-standup-repos-max-depth'."
+  (mapcan (lambda (dir)
+            (magit-standup--find-repos dir magit-standup-repos-max-depth))
+          dirs))
 
 (defun magit-standup--collect-commits (repo-path since-date author)
   "Collect commits from REPO-PATH since SINCE-DATE by AUTHOR.
@@ -126,7 +160,7 @@ Returns an alist of (REPO-NAME . BRANCH-COMMITS) suitable for
          (author (or magit-standup-author
                      (magit-git-string "config" "user.email")
                      (user-error "Cannot determine author; set `magit-standup-author' or git config user.email")))
-         (repos (or magit-standup-repos
+         (repos (or (magit-standup--resolve-repos magit-standup-repos)
                     (list (magit-toplevel)))))
     (mapcar (lambda (repo)
               (cons (file-name-nondirectory
