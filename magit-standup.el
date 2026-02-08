@@ -102,16 +102,12 @@ today is Monday use last Friday; else use yesterday."
                         (time-subtract now
                                        (days-to-time days-ago)))))
 
-(defun magit-standup--git-repo-p (dir)
-  "Return non-nil if DIR contains a `.git' directory or file."
-  (file-directory-p (expand-file-name ".git" dir)))
-
 (defun magit-standup--find-repos (dir depth)
   "Recursively find git repositories under DIR up to DEPTH levels.
 When DEPTH is nil, search with unlimited depth.  Hidden
 directories are skipped."
   (cond
-   ((magit-standup--git-repo-p dir) (list dir))
+   ((magit-git-repo-p dir) (list dir))
    ((and depth (<= depth 0)) nil)
    (t (mapcan (lambda (child)
                 (when (and (file-directory-p child)
