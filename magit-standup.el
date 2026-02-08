@@ -239,7 +239,8 @@ current repo if that is nil) and displays them in a
         (erase-buffer)
         (insert (magit-standup--format-org repo-commits link-prefix)))
       (goto-char (point-min))
-      (org-mode))
+      (org-mode)
+      (read-only-mode 1))
     (pop-to-buffer buf)))
 
 (provide 'magit-standup)
