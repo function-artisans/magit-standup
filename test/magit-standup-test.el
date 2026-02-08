@@ -94,6 +94,22 @@
     (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice")
             :to-equal "abc123 Fix bug <2026-01-05> Alice")))
 
+(describe "magit-standup--format-branch-commits"
+  (it "formats a branch with commits"
+    (expect (magit-standup--format-branch-commits
+             "/home/user/repo" '("main" . ("abc\0Fix bug" "def\0Add feature")))
+            :to-equal "** ~main~\n- abc Fix bug\n- def Add feature\n"))
+
+  (it "formats with a link prefix"
+    (expect (magit-standup--format-branch-commits
+             "/home/user/repo" '("main" . ("abc\0Fix bug")) "orgit-rev")
+            :to-equal "** ~main~\n- [[orgit-rev:/home/user/repo::abc][abc]] Fix bug\n"))
+
+  (it "returns nil for a branch with no commits"
+    (expect (magit-standup--format-branch-commits
+             "/home/user/repo" '("stale-branch"))
+            :to-be nil)))
+
 (describe "magit-standup--collect-commits"
   (it "sets default-directory to the repo path"
     (let (captured-dirs)

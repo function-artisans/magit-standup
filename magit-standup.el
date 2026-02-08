@@ -170,6 +170,20 @@ null byte."
                                      branch)))
             branches)))
 
+(defun magit-standup--format-branch-commits (repo-path branch-commits &optional link-prefix)
+  "Format BRANCH-COMMITS for REPO-PATH as org text.
+BRANCH-COMMITS is a cons of (BRANCH-NAME . COMMITS).
+LINK-PREFIX is the org link prefix string, or nil for plain text.
+Returns nil when BRANCH-COMMITS has no commits."
+  (when (cdr branch-commits)
+    (concat "** ~" (car branch-commits) "~\n"
+            (mapconcat
+             (lambda (c)
+               (concat "- " (magit-standup--format-commit
+                             repo-path c link-prefix)))
+             (cdr branch-commits) "\n")
+            "\n")))
+
 (defun magit-standup--format-org (repo-commits &optional link-prefix)
   "Format REPO-COMMITS as `org-mode' text.
 REPO-COMMITS is an alist of (REPO-PATH . BRANCH-COMMITS) where
@@ -180,21 +194,15 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
      (let* ((repo-path (car entry))
             (repo-name (file-name-nondirectory
                         (directory-file-name repo-path)))
-            (branch-commits (cdr entry))
-            (active (seq-filter #'cdr branch-commits)))
-       (if active
+            (formatted (delq nil
+                             (mapcar
+                              (lambda (bc)
+                                (magit-standup--format-branch-commits
+                                 repo-path bc link-prefix))
+                              (cdr entry)))))
+       (if formatted
            (concat "* " repo-name "\n"
-                   (mapconcat
-                    (lambda (bc)
-                      (concat "** ~" (car bc) "~\n"
-                              (mapconcat
-                               (lambda (c)
-                                 (concat "- " (magit-standup--format-commit
-                                               repo-path c link-prefix)))
-                               (cdr bc) "\n")
-                              "\n"))
-                    active
-                    "\n"))
+                   (mapconcat #'identity formatted "\n"))
          (concat "* " repo-name "\n- (no commits)\n"))))
    repo-commits
    "\n"))
