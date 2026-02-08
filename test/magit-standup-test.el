@@ -90,7 +90,7 @@
     (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice" "git")
             :to-equal "[[git:/home/user/repo::abc123][abc123]] Fix bug <2026-01-05> Alice"))
 
-  (it "formats as plain text when link-type is omitted"
+  (it "formats as plain text when link-prefix is omitted"
     (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice")
             :to-equal "abc123 Fix bug <2026-01-05> Alice")))
 
