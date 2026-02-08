@@ -1,0 +1,18 @@
+(package "magit-standup"
+         "0.1.0"
+         "Collect recent git commits for standup notes")
+
+(website-url "https://github.com/function-artisans/magit-standup")
+(keywords "tools" "vc")
+
+(package-file "magit-standup.el")
+
+(source "gnu")
+(source "melpa")
+
+(depends-on "emacs" "27.1")
+(depends-on "magit" "4.5.0")
+
+(development
+ (depends-on "package-lint")
+ (depends-on "buttercup"))
