@@ -88,6 +88,8 @@ back to Friday (3 days), otherwise look back 1 day."
           (integer :tag "Days ago"))
   :group 'magit-standup)
 
+(defconst magit-standup--buffer-name "*magit-standup*")
+
 (defun magit-standup--since-date ()
   "Return the \"since\" date string for filtering commits.
 If `magit-standup-since-days-ago' is set, use it.  Otherwise,
@@ -222,6 +224,12 @@ Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
                     (magit-standup--collect-commits repo since-date author)))
             repos)))
 
+(defun magit-standup-quit ()
+  "Quit the `*magit-standup*' buffer and kill it."
+  (interactive)
+  (when-let ((win (get-buffer-window magit-standup--buffer-name)))
+    (quit-window t win)))
+
 ;;;###autoload
 (defun magit-standup ()
   "Display recent git commits as `org-mode' standup notes.
@@ -232,7 +240,7 @@ current repo if that is nil) and displays them in a
   (let* ((repo-commits (magit-standup--gather))
          (link-package (or magit-standup-link-package
                            (magit-standup--detect-link-package)))
-         (buf (get-buffer-create "*magit-standup*"))
+         (buf (get-buffer-create magit-standup--buffer-name))
          (link-prefix (magit-standup--link-prefix link-package)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -240,7 +248,9 @@ current repo if that is nil) and displays them in a
         (insert (magit-standup--format-org repo-commits link-prefix)))
       (goto-char (point-min))
       (org-mode)
-      (read-only-mode 1))
+      (read-only-mode 1)
+      (when (bound-and-true-p evil-mode)
+        (evil-local-set-key 'normal "q" #'magit-standup-quit)))
     (pop-to-buffer buf)))
 
 (provide 'magit-standup)
