@@ -90,8 +90,9 @@ back to Friday (3 days), otherwise look back 1 day."
 
 (defun magit-standup--since-date ()
   "Return the \"since\" date string for filtering commits.
-If `magit-standup-since-days-ago' is set, use it.  Otherwise, if
-today is Monday use last Friday; else use yesterday."
+If `magit-standup-since-days-ago' is set, use it.  Otherwise,
+on weekends look back to Friday; on Monday look back to Friday
+\(3 days); on other weekdays look back 1 day."
   (let* ((now (current-time))
          (day (string-to-number (format-time-string "%u" now)))
          (days-ago (cond (magit-standup-since-days-ago magit-standup-since-days-ago)
