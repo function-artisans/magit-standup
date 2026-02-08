@@ -130,8 +130,7 @@ Returns `orgit' if orgit is loaded, `org-git-link' if
 org-git-link is loaded, or nil if neither is available."
   (cond
    ((featurep 'orgit) 'orgit)
-   ((featurep 'org-git-link) 'org-git-link)
-   (t nil)))
+   ((featurep 'org-git-link) 'org-git-link)))
 
 (defun magit-standup--link-prefix (package)
   "Return the org link type string for PACKAGE.
