@@ -53,7 +53,7 @@ When nil, only the current repository is used."
 
 (defcustom magit-standup-author nil
   "Author name or email to filter commits by.
-When nil, the result of `git config user.name' is used."
+When nil, the result of `git config user.email' is used."
   :type '(choice (const :tag "From git config" nil)
           (string :tag "Author name/email"))
   :group 'magit-standup)
