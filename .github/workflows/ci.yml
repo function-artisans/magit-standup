@@ -1,0 +1,25 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs_version: ['27.1', '28.2', '29.4', '30.2']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jcs090218/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+      - uses: emacs-eask/setup-eask@master
+        with:
+          version: 'snapshot'
+      - run: eask package
+      - run: eask install-deps
+      - run: eask compile
+      - run: eask lint package
+      - run: eask test buttercup
