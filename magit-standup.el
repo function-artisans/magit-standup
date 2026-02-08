@@ -68,6 +68,18 @@ When nil, the result of `git config user.email' is used."
           (string :tag "Author name/email"))
   :group 'magit-standup)
 
+(defcustom magit-standup-link-package nil
+  "Package to use for linking commit hashes in org output.
+When nil, auto-detect by checking if `orgit' or `org-git-link'
+is loaded.  When `orgit', use orgit-rev links.  When
+`org-git-link', use git links.  When `none', plain text
+without links."
+  :type '(choice (const :tag "Auto-detect" nil)
+          (const :tag "orgit" orgit)
+          (const :tag "org-git-link" org-git-link)
+          (const :tag "Plain text" none))
+  :group 'magit-standup)
+
 (defcustom magit-standup-since-days-ago nil
   "Override for how many days back to look.
 When nil, automatic weekday-aware logic is used: on Monday look
@@ -115,27 +127,61 @@ searched recursively up to `magit-standup-repos-max-depth'."
             (magit-standup--find-repos dir magit-standup-repos-max-depth))
           dirs))
 
+(defun magit-standup--detect-link-package ()
+  "Detect which git-link package is available.
+Returns `orgit' if orgit is loaded, `org-git-link' if
+org-git-link is loaded, or nil if neither is available."
+  (cond
+   ((featurep 'orgit) 'orgit)
+   ((featurep 'org-git-link) 'org-git-link)
+   (t nil)))
+
+(defun magit-standup--link-prefix (package)
+  "Return the org link type string for PACKAGE.
+PACKAGE should be `orgit', `org-git-link', or nil."
+  (pcase package
+    ('orgit "orgit-rev")
+    ('org-git-link "git")
+    (_ nil)))
+
+(defun magit-standup--format-commit (repo-path line &optional link-prefix)
+  "Format a commit LINE, optionally as an org link.
+REPO-PATH is the repository directory.  LINE is expected to have
+the hash separated from the rest by a null byte.  LINK-PREFIX is
+the org link prefix string, or nil for plain text."
+  (let* ((parts (split-string line "\0"))
+         (hash (car parts))
+         (rest (cadr parts)))
+    (if link-prefix
+        (concat "[[" link-prefix ":" repo-path "::" hash "][" hash "]]"
+                " " rest)
+      (concat hash " " rest))))
+
 (defun magit-standup--collect-commits (repo-path since-date author)
   "Collect commits from REPO-PATH since SINCE-DATE by AUTHOR.
 Returns an alist of (BRANCH-NAME . COMMITS) where COMMITS is a
-list of commit message strings."
+list of raw commit strings with hash and message separated by a
+null byte."
   (let* ((default-directory (file-name-as-directory repo-path))
          (branches (magit-git-lines "branch" "--format=%(refname:short)")))
     (mapcar (lambda (branch)
               (cons branch
-                    (magit-git-lines "log" "--oneline"
+                    (magit-git-lines "log" "--format=%h%x00%s <%ai> - %aN"
                                      (concat "--after=" since-date)
                                      (concat "--author=" author)
                                      branch)))
             branches)))
 
-(defun magit-standup--format-org (repo-commits)
+(defun magit-standup--format-org (repo-commits &optional link-prefix)
   "Format REPO-COMMITS as `org-mode' text.
-REPO-COMMITS is an alist of (REPO-NAME . BRANCH-COMMITS) where
-BRANCH-COMMITS is an alist of (BRANCH-NAME . COMMITS)."
+REPO-COMMITS is an alist of (REPO-PATH . BRANCH-COMMITS) where
+BRANCH-COMMITS is an alist of (BRANCH-NAME . COMMITS).
+LINK-PREFIX is the org link prefix string, or nil for plain text."
   (mapconcat
    (lambda (entry)
-     (let* ((repo-name (car entry))
+     (let* ((repo-path (car entry))
+            (repo-name (file-name-nondirectory
+                        (directory-file-name repo-path)))
             (branch-commits (cdr entry))
             (active (seq-filter #'cdr branch-commits)))
        (if active
@@ -143,8 +189,11 @@ BRANCH-COMMITS is an alist of (BRANCH-NAME . COMMITS)."
                    (mapconcat
                     (lambda (bc)
                       (concat "** ~" (car bc) "~\n"
-                              (mapconcat (lambda (c) (concat "- " c))
-                                         (cdr bc) "\n")
+                              (mapconcat
+                               (lambda (c)
+                                 (concat "- " (magit-standup--format-commit
+                                               repo-path c link-prefix)))
+                               (cdr bc) "\n")
                               "\n"))
                     active
                     "\n"))
@@ -154,7 +203,7 @@ BRANCH-COMMITS is an alist of (BRANCH-NAME . COMMITS)."
 
 (defun magit-standup--gather ()
   "Gather recent commits across all configured repositories.
-Returns an alist of (REPO-NAME . BRANCH-COMMITS) suitable for
+Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
 `magit-standup--format-org'."
   (let* ((since-date (magit-standup--since-date))
          (author (or magit-standup-author
@@ -163,8 +212,7 @@ Returns an alist of (REPO-NAME . BRANCH-COMMITS) suitable for
          (repos (or (magit-standup--resolve-repos magit-standup-repos)
                     (list (magit-toplevel)))))
     (mapcar (lambda (repo)
-              (cons (file-name-nondirectory
-                     (directory-file-name repo))
+              (cons repo
                     (magit-standup--collect-commits repo since-date author)))
             repos)))
 
@@ -176,11 +224,14 @@ current repo if that is nil) and displays them in a
 `*magit-standup*' buffer."
   (interactive)
   (let* ((repo-commits (magit-standup--gather))
-         (buf (get-buffer-create "*magit-standup*")))
+         (link-package (or magit-standup-link-package
+                           (magit-standup--detect-link-package)))
+         (buf (get-buffer-create "*magit-standup*"))
+         (link-prefix (magit-standup--link-prefix link-package)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (magit-standup--format-org repo-commits)))
+        (insert (magit-standup--format-org repo-commits link-prefix)))
       (goto-char (point-min))
       (org-mode))
     (pop-to-buffer buf)))

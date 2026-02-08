@@ -52,6 +52,48 @@
                  (lambda () (encode-time 0 0 12 7 1 2026))))
         (expect (magit-standup--since-date) :to-equal "2025-12-31")))))
 
+(describe "magit-standup--detect-link-package"
+  (it "returns orgit when orgit is loaded"
+    (cl-letf (((symbol-function 'featurep)
+               (lambda (f) (eq f 'orgit))))
+      (expect (magit-standup--detect-link-package) :to-be 'orgit)))
+
+  (it "returns org-git-link when org-git-link is loaded"
+    (cl-letf (((symbol-function 'featurep)
+               (lambda (f) (eq f 'org-git-link))))
+      (expect (magit-standup--detect-link-package) :to-be 'org-git-link)))
+
+  (it "returns nil when nothing is loaded"
+    (cl-letf (((symbol-function 'featurep)
+               (lambda (_) nil)))
+      (expect (magit-standup--detect-link-package) :to-be nil))))
+
+(describe "magit-standup--link-prefix"
+  (it "returns orgit-rev for orgit"
+    (expect (magit-standup--link-prefix 'orgit) :to-equal "orgit-rev"))
+
+  (it "returns git for org-git-link"
+    (expect (magit-standup--link-prefix 'org-git-link) :to-equal "git"))
+
+  (it "returns nil for none"
+    (expect (magit-standup--link-prefix 'none) :to-be nil))
+
+  (it "returns nil for nil"
+    (expect (magit-standup--link-prefix nil) :to-be nil)))
+
+(describe "magit-standup--format-commit"
+  (it "formats with orgit-rev link"
+    (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice" "orgit-rev")
+            :to-equal "[[orgit-rev:/home/user/repo::abc123][abc123]] Fix bug <2026-01-05> Alice"))
+
+  (it "formats with git link"
+    (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice" "git")
+            :to-equal "[[git:/home/user/repo::abc123][abc123]] Fix bug <2026-01-05> Alice"))
+
+  (it "formats as plain text when link-type is omitted"
+    (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice")
+            :to-equal "abc123 Fix bug <2026-01-05> Alice")))
+
 (describe "magit-standup--collect-commits"
   (it "sets default-directory to the repo path"
     (let (captured-dirs)
@@ -132,40 +174,52 @@
 (describe "magit-standup--format-org"
   (it "formats branch commits with subheadings"
     (expect (magit-standup--format-org
-             '(("my-repo" . (("main" . ("abc123 Fix bug"
-                                         "def456 Add feature"))))))
+             '(("/home/user/my-repo" . (("main" . ("abc123\0Fix bug"
+                                                   "def456\0Add feature")))))
+             nil)
             :to-equal
             "* my-repo\n** ~main~\n- abc123 Fix bug\n- def456 Add feature\n"))
 
   (it "shows placeholder when all branches have no commits"
     (expect (magit-standup--format-org
-             '(("empty-repo" . (("main") ("develop")))))
+             '(("/home/user/empty-repo" . (("main") ("develop"))))
+             nil)
             :to-equal
             "* empty-repo\n- (no commits)\n"))
 
   (it "skips branches with no commits"
     (expect (magit-standup--format-org
-             '(("my-repo" . (("main" . ("abc Fix thing"))
-                              ("stale-branch")))))
+             '(("/home/user/my-repo" . (("main" . ("abc\0Fix thing"))
+                                        ("stale-branch"))))
+             nil)
             :to-equal
             "* my-repo\n** ~main~\n- abc Fix thing\n"))
 
   (it "shows multiple branches under one repo"
     (expect (magit-standup--format-org
-             '(("my-repo" . (("main" . ("abc Fix thing"))
-                              ("feature" . ("def Add thing"))))))
+             '(("/home/user/my-repo" . (("main" . ("abc\0Fix thing"))
+                                        ("feature" . ("def\0Add thing")))))
+             nil)
             :to-equal
             (concat "* my-repo\n** ~main~\n- abc Fix thing\n"
                     "\n** ~feature~\n- def Add thing\n")))
 
   (it "separates multiple repos with blank lines"
     (expect (magit-standup--format-org
-             '(("repo-a" . (("main" . ("abc Fix thing"))))
-               ("repo-b" . (("develop" . ("def Other thing"))))))
+             '(("/home/user/repo-a" . (("main" . ("abc\0Fix thing"))))
+               ("/home/user/repo-b" . (("develop" . ("def\0Other thing")))))
+             nil)
             :to-equal
             (concat "* repo-a\n** ~main~\n- abc Fix thing\n"
                     "\n"
-                    "* repo-b\n** ~develop~\n- def Other thing\n"))))
+                    "* repo-b\n** ~develop~\n- def Other thing\n")))
+
+  (it "applies link-package to commits"
+    (expect (magit-standup--format-org
+             '(("/home/user/my-repo" . (("main" . ("abc\0Fix thing")))))
+             "orgit-rev")
+            :to-equal
+            "* my-repo\n** ~main~\n- [[orgit-rev:/home/user/my-repo::abc][abc]] Fix thing\n")))
 
 (describe "magit-standup--gather"
   (before-each
@@ -201,13 +255,13 @@
     (let ((magit-standup-repos '("/tmp/a" "/tmp/b"))
           (magit-standup-author "alice"))
       (let ((result (magit-standup--gather)))
-        (expect (mapcar #'car result) :to-equal '("a" "b")))))
+        (expect (mapcar #'car result) :to-equal '("/tmp/a" "/tmp/b")))))
 
   (it "falls back to magit-toplevel when repos is nil"
     (let ((magit-standup-repos nil)
           (magit-standup-author "alice"))
       (spy-on 'magit-toplevel :and-return-value "/home/user/my-project")
       (let ((result (magit-standup--gather)))
-        (expect (mapcar #'car result) :to-equal '("my-project"))))))
+        (expect (mapcar #'car result) :to-equal '("/home/user/my-project"))))))
 
 ;;; magit-standup-test.el ends here
