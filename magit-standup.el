@@ -127,7 +127,8 @@ current repo if that is nil) and displays them in a
   (interactive)
   (let* ((since-date (magit-standup--since-date))
          (author (or magit-standup-author
-                     (magit-git-string "config" "user.email")))
+                     (magit-git-string "config" "user.email")
+                     (user-error "Cannot determine author; set `magit-standup-author' or git config user.email")))
          (repos (or magit-standup-repos
                     (list (magit-toplevel))))
          (repo-commits
