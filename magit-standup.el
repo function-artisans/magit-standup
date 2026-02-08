@@ -84,15 +84,15 @@ today is Monday use last Friday; else use yesterday."
   "Collect commits from REPO-PATH since SINCE-DATE by AUTHOR.
 Returns an alist of (BRANCH-NAME . COMMITS) where COMMITS is a
 list of commit message strings."
-  (let ((default-directory (file-name-as-directory repo-path)))
-    (let ((branches (magit-git-lines "branch" "--format=%(refname:short)")))
-      (mapcar (lambda (branch)
-                (cons branch
-                      (magit-git-lines "log" "--oneline"
-                                       (concat "--after=" since-date)
-                                       (concat "--author=" author)
-                                       branch)))
-              branches))))
+  (let* ((default-directory (file-name-as-directory repo-path))
+         (branches (magit-git-lines "branch" "--format=%(refname:short)")))
+    (mapcar (lambda (branch)
+              (cons branch
+                    (magit-git-lines "log" "--oneline"
+                                     (concat "--after=" since-date)
+                                     (concat "--author=" author)
+                                     branch)))
+            branches)))
 
 (defun magit-standup--format-org (repo-commits)
   "Format REPO-COMMITS as `org-mode' text.
