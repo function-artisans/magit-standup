@@ -70,13 +70,14 @@ back to Friday (3 days), otherwise look back 1 day."
   "Return the \"since\" date string for filtering commits.
 If `magit-standup-since-days-ago' is set, use it.  Otherwise, if
 today is Monday use last Friday; else use yesterday."
-  (let* ((day (string-to-number (format-time-string "%u" (current-time))))
+  (let* ((now (current-time))
+         (day (string-to-number (format-time-string "%u" now)))
          (days-ago (cond (magit-standup-since-days-ago magit-standup-since-days-ago)
                          ((<= 6 day) (- day 5))
                          ((= 1 day) 3)
                          (t 1))))
     (format-time-string "%Y-%m-%d"
-                        (time-subtract (current-time)
+                        (time-subtract now
                                        (days-to-time days-ago)))))
 
 (defun magit-standup--collect-commits (repo-path since-date author)
