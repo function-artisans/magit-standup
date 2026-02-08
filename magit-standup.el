@@ -163,7 +163,9 @@ null byte."
          (branches (magit-git-lines "branch" "--format=%(refname:short)")))
     (mapcar (lambda (branch)
               (cons branch
-                    (magit-git-lines "log" "--format=%h%x00%s <%ai> - %aN"
+                    (magit-git-lines "log"
+                                     "--no-merges"
+                                     "--format=%h%x00%s <%ai> - %aN"
                                      (concat "--after=" since-date)
                                      (concat "--author=" author)
                                      branch)))
