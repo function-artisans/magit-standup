@@ -4,7 +4,7 @@
 
 ;; Author: István Karaszi <ikaraszi@gmail.com>
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "27.1") (magit "4.5.0"))
+;; Package-Requires: ((emacs "28.1") (magit "4.5.0"))
 ;; Keywords: tools, vc
 ;; URL: https://github.com/function-artisans/magit-standup
 
