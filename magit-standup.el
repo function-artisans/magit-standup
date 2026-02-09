@@ -155,12 +155,16 @@ the org link prefix string, or nil for plain text."
                 " " rest)
       (concat hash " " rest))))
 
-(defun magit-standup--collect-commits (repo-path since-date author)
-  "Collect commits from REPO-PATH since SINCE-DATE by AUTHOR.
+(defun magit-standup--collect-commits (repo-path since-date)
+  "Collect commits from REPO-PATH since SINCE-DATE.
 Returns an alist of (BRANCH-NAME . COMMITS) where COMMITS is a
 list of raw commit strings with hash and message separated by a
-null byte."
+null byte.  The author is determined from `magit-standup-author'
+or `git config user.email' in REPO-PATH."
   (let* ((default-directory (file-name-as-directory repo-path))
+         (author (or magit-standup-author
+                     (magit-git-string "config" "user.email")
+                     (user-error "Cannot determine author for %s; set `magit-standup-author' or git config user.email" repo-path)))
          (branches (magit-git-lines "branch" "--format=%(refname:short)")))
     (mapcar (lambda (branch)
               (cons branch
@@ -214,14 +218,11 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
 Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
 `magit-standup--format-org'."
   (let* ((since-date (magit-standup--since-date))
-         (author (or magit-standup-author
-                     (magit-git-string "config" "user.email")
-                     (user-error "Cannot determine author; set `magit-standup-author' or git config user.email")))
          (repos (or (magit-standup--resolve-repos magit-standup-repos)
                     (list (magit-toplevel)))))
     (mapcar (lambda (repo)
               (cons repo
-                    (magit-standup--collect-commits repo since-date author)))
+                    (magit-standup--collect-commits repo since-date)))
             repos)))
 
 (defun magit-standup-quit ()
