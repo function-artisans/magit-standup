@@ -206,12 +206,12 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
                                 (magit-standup--format-branch-commits
                                  repo-path bc link-prefix))
                               (cdr entry)))))
-       (if formatted
-           (concat "* " repo-name "\n"
-                   (mapconcat #'identity formatted "\n"))
-         (concat "* " repo-name "\n- (no commits)\n"))))
-   repo-commits
-   "\n"))
+       (when formatted
+         (concat "* " repo-name "\n\n"
+                 (mapconcat #'identity formatted "\n")
+                 "\n"
+                 ))))
+   repo-commits))
 
 (defun magit-standup--gather ()
   "Gather recent commits across all configured repositories.
