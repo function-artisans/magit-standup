@@ -244,6 +244,44 @@
     (let ((magit-standup-repos nil))
       (spy-on 'magit-toplevel :and-return-value "/home/user/my-project")
       (let ((result (magit-standup--gather)))
-        (expect (mapcar #'car result) :to-equal '("/home/user/my-project"))))))
+        (expect (mapcar #'car result) :to-equal '("/home/user/my-project")))))
+
+  (it "uses provided since-date instead of computing one"
+    (let ((magit-standup-repos '("/tmp/a")))
+      (magit-standup--gather "2026-02-01")
+      (expect 'magit-standup--since-date :not :to-have-been-called)
+      (expect 'magit-standup--collect-commits
+              :to-have-been-called-with "/tmp/a" "2026-02-01")))
+
+  (it "uses provided repos instead of configured ones"
+    (let ((magit-standup-repos '("/tmp/should-not-use")))
+      (let ((result (magit-standup--gather nil '("/tmp/x" "/tmp/y"))))
+        (expect 'magit-standup--resolve-repos :not :to-have-been-called)
+        (expect (mapcar #'car result) :to-equal '("/tmp/x" "/tmp/y")))))
+
+  (it "uses both overrides together"
+    (let ((magit-standup-repos '("/tmp/ignored")))
+      (magit-standup--gather "2026-03-01" '("/tmp/override"))
+      (expect 'magit-standup--since-date :not :to-have-been-called)
+      (expect 'magit-standup--resolve-repos :not :to-have-been-called)
+      (expect 'magit-standup--collect-commits
+              :to-have-been-called-with "/tmp/override" "2026-03-01"))))
+
+(describe "magit-standup--display"
+  (after-each
+    (when-let ((buf (get-buffer magit-standup--buffer-name)))
+      (kill-buffer buf)))
+
+  (it "creates a buffer with org-mode content"
+    (let ((magit-standup-link-package 'none))
+      (magit-standup--display
+       '(("/home/user/my-repo" . (("main" . ("abc\0Fix bug"))))))
+      (let ((buf (get-buffer magit-standup--buffer-name)))
+        (expect buf :not :to-be nil)
+        (with-current-buffer buf
+          (expect major-mode :to-be 'org-mode)
+          (expect buffer-read-only :to-be t)
+          (expect (buffer-string) :to-match "my-repo")
+          (expect (buffer-string) :to-match "abc Fix bug"))))))
 
 ;;; magit-standup-test.el ends here

@@ -4,7 +4,7 @@
 
 ;; Author: István Karaszi <ikaraszi@gmail.com>
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "28.1") (magit "4.5.0"))
+;; Package-Requires: ((emacs "28.1") (magit "4.5.0") (transient "0.8.0"))
 ;; Keywords: tools, vc
 ;; URL: https://github.com/function-artisans/magit-standup
 
@@ -40,6 +40,7 @@
 ;;; Code:
 
 (require 'magit)
+(require 'transient)
 
 (defgroup magit-standup nil
   "Collect recent git commits for standup notes."
@@ -212,12 +213,15 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
                  "\n"))))
    repo-commits))
 
-(defun magit-standup--gather ()
+(defun magit-standup--gather (&optional since-date repos)
   "Gather recent commits across all configured repositories.
+SINCE-DATE, when non-nil, overrides the computed since date.
+REPOS, when non-nil, overrides `magit-standup-repos'.
 Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
 `magit-standup--format-org'."
-  (let* ((since-date (magit-standup--since-date))
-         (repos (or (magit-standup--resolve-repos magit-standup-repos)
+  (let* ((since-date (or since-date (magit-standup--since-date)))
+         (repos (or repos
+                    (magit-standup--resolve-repos magit-standup-repos)
                     (list (magit-toplevel)))))
     (mapcar (lambda (repo)
               (cons repo
@@ -230,15 +234,10 @@ Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
   (when-let ((win (get-buffer-window magit-standup--buffer-name)))
     (quit-window t win)))
 
-;;;###autoload
-(defun magit-standup ()
-  "Display recent git commits as `org-mode' standup notes.
-Collects commits from all repos in `magit-standup-repos' (or the
-current repo if that is nil) and displays them in a
-`*magit-standup*' buffer."
-  (interactive)
-  (let* ((repo-commits (magit-standup--gather))
-         (link-package (or magit-standup-link-package
+(defun magit-standup--display (repo-commits)
+  "Display REPO-COMMITS in the `*magit-standup*' buffer.
+REPO-COMMITS is an alist as returned by `magit-standup--gather'."
+  (let* ((link-package (or magit-standup-link-package
                            (magit-standup--detect-link-package)))
          (buf (get-buffer-create magit-standup--buffer-name))
          (link-prefix (magit-standup--link-prefix link-package)))
@@ -252,6 +251,56 @@ current repo if that is nil) and displays them in a
       (when (bound-and-true-p evil-mode)
         (evil-local-set-key 'normal "q" #'magit-standup-quit)))
     (pop-to-buffer buf)))
+
+(defun magit-standup--default-repos ()
+  "Return resolved repo paths as a list of normalized directory names."
+  (mapcar (lambda (d) (directory-file-name (expand-file-name d)))
+          (or (magit-standup--resolve-repos magit-standup-repos)
+              (when-let ((top (magit-toplevel)))
+                (list top)))))
+
+(defun magit-standup--read-repos (prompt _initial-input _history)
+  "Read repo directories with `completing-read-multiple'.
+PROMPT is shown to the user.  Returns a comma-separated string."
+  (string-join (completing-read-multiple prompt (magit-standup--default-repos)) ","))
+
+(transient-define-infix magit-standup--since ()
+  :description "Since date"
+  :class 'transient-option
+  :shortarg "-d"
+  :argument "--since="
+  :reader #'transient-read-date
+  :init-value (lambda (obj)
+                (unless (oref obj value)
+                  (oset obj value (magit-standup--since-date)))))
+
+(transient-define-infix magit-standup--repos ()
+  :description "Repositories"
+  :class 'transient-option
+  :shortarg "-r"
+  :argument "--repos="
+  :reader #'magit-standup--read-repos)
+
+(transient-define-suffix magit-standup--run ()
+  "Run the standup with the selected options."
+  :key "s"
+  :description "Show standup"
+  (interactive)
+  (let* ((args (transient-args 'magit-standup))
+         (since (transient-arg-value "--since=" args))
+         (repos-str (transient-arg-value "--repos=" args))
+         (repos (when repos-str (split-string repos-str ","))))
+    (magit-standup--display
+     (magit-standup--gather since repos))))
+
+;;;###autoload (autoload 'magit-standup "magit-standup" nil t)
+(transient-define-prefix magit-standup ()
+  "Show a menu for generating standup notes."
+  ["Options"
+   (magit-standup--since)
+   (magit-standup--repos)]
+  ["Actions"
+   ("s" "Show standup" magit-standup--run)])
 
 (provide 'magit-standup)
 
