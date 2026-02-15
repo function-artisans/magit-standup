@@ -1,0 +1,6 @@
+*.elc
+.deps
+.compile
+.eask/
+.cask/
+dist/

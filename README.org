@@ -1,0 +1,64 @@
+#+title: magit-standup
+#+author: István Karaszi
+
+Collect recent git commits across multiple repositories and format them as org-mode standup notes.
+
+[[file:screenshots/standup-buffer.png]]
+
+* Features
+
+- Scans one or more git repositories for your recent commits
+- Weekday-aware lookback: on Monday (and weekends) looks back to Friday; otherwise looks back 1 day
+- Transient menu lets you override the since-date and repository list before running
+- Output is an org-mode buffer with clickable commit links (via [[https://github.com/magit/orgit][orgit]] or [[https://orgmode.org/worg/org-contrib/org-git-link.html][org-git-link]])
+- Directories that aren't git repos are searched recursively for nested repos
+
+* Requirements
+
+- Emacs 28.1+
+- [[https://github.com/magit/magit][Magit]] 4.5.0+
+- [[https://github.com/magit/transient][Transient]] 0.8.0+
+
+* Installation
+
+** With use-package and straight.el
+
+#+begin_src emacs-lisp
+(use-package magit-standup
+  :straight (:host github :repo "function-artisans/magit-standup"))
+#+end_src
+
+** Manual
+
+Clone the repository and add it to your =load-path=:
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "/path/to/magit-standup")
+(require 'magit-standup)
+#+end_src
+
+* Usage
+
+Run =M-x magit-standup= to open the transient menu:
+
+- =-d= / =--since== — override the since-date (defaults to the weekday-aware computed date)
+- =-r= / =--repos== — override the repository list
+- =s= — show the standup buffer
+
+Press =s= to generate the standup notes in a =*magit-standup*= buffer.
+
+* Configuration
+
+All options can be customized via =M-x customize-group RET magit-standup=.
+
+| Variable                        | Default | Description                                                        |
+|---------------------------------+---------+--------------------------------------------------------------------|
+| =magit-standup-repos=           | =nil=   | List of directories to scan. When nil, uses current repo.          |
+| =magit-standup-repos-max-depth= | =1=     | Max depth to search non-repo directories for nested repos.         |
+| =magit-standup-author=          | =nil=   | Author filter. When nil, uses =git config user.email=.             |
+| =magit-standup-since-days-ago=  | =nil=   | Fixed lookback override. When nil, weekday-aware logic.            |
+| =magit-standup-link-package=    | =nil=   | Link style: =orgit=, =org-git-link=, =none=, or nil (auto-detect). |
+
+* License
+
+GPL-3.0-or-later
