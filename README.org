@@ -3,6 +3,8 @@
 
 Collect recent git commits across multiple repositories and format them as org-mode standup notes.
 
+[[file:screenshots/standup-buffer.png]]
+
 * Features
 
 - Scans one or more git repositories for your recent commits
