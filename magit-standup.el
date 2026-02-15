@@ -151,10 +151,11 @@ the org link prefix string, or nil for plain text."
   (let* ((parts (split-string line "\0"))
          (hash (car parts))
          (rest (cadr parts)))
-    (if link-prefix
-        (concat "[[" link-prefix ":" repo-path "::" hash "][" hash "]]"
-                " " rest)
-      (concat hash " " rest))))
+    (format "%s %s"
+            (if link-prefix
+                (format "[[%s:%s::%s][%s]]" link-prefix repo-path hash hash)
+              hash)
+            rest)))
 
 (defun magit-standup--collect-commits (repo-path since-date)
   "Collect commits from REPO-PATH since SINCE-DATE.
@@ -183,13 +184,13 @@ BRANCH-COMMITS is a cons of (BRANCH-NAME . COMMITS).
 LINK-PREFIX is the org link prefix string, or nil for plain text.
 Returns nil when BRANCH-COMMITS has no commits."
   (when (cdr branch-commits)
-    (concat "** ~" (car branch-commits) "~\n"
+    (format "** ~%s~\n%s\n"
+            (car branch-commits)
             (mapconcat
              (lambda (c)
-               (concat "- " (magit-standup--format-commit
-                             repo-path c link-prefix)))
-             (cdr branch-commits) "\n")
-            "\n")))
+               (format "- %s" (magit-standup--format-commit
+                               repo-path c link-prefix)))
+             (cdr branch-commits) "\n"))))
 
 (defun magit-standup--format-org (repo-commits &optional link-prefix)
   "Format REPO-COMMITS as `org-mode' text.
@@ -208,9 +209,9 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
                                  repo-path bc link-prefix))
                               (cdr entry)))))
        (when formatted
-         (concat "* " repo-name "\n\n"
-                 (mapconcat #'identity formatted "\n")
-                 "\n"))))
+         (format "* [[file:%s][%s]]\n\n%s\n"
+                 repo-path repo-name
+                 (mapconcat #'identity formatted "\n")))))
    repo-commits))
 
 (defun magit-standup--gather (&optional since-date repos)

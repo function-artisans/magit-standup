@@ -187,7 +187,7 @@
                                                    "def456\0Add feature")))))
              nil)
             :to-equal
-            "* my-repo\n\n** ~main~\n- abc123 Fix bug\n- def456 Add feature\n\n"))
+            "* [[file:/home/user/my-repo][my-repo]]\n\n** ~main~\n- abc123 Fix bug\n- def456 Add feature\n\n"))
 
   (it "omits repos when all branches have no commits"
     (expect (magit-standup--format-org
@@ -201,7 +201,7 @@
                                         ("stale-branch"))))
              nil)
             :to-equal
-            "* my-repo\n\n** ~main~\n- abc Fix thing\n\n"))
+            "* [[file:/home/user/my-repo][my-repo]]\n\n** ~main~\n- abc Fix thing\n\n"))
 
   (it "shows multiple branches under one repo"
     (expect (magit-standup--format-org
@@ -209,7 +209,7 @@
                                         ("feature" . ("def\0Add thing")))))
              nil)
             :to-equal
-            (concat "* my-repo\n\n** ~main~\n- abc Fix thing\n"
+            (concat "* [[file:/home/user/my-repo][my-repo]]\n\n** ~main~\n- abc Fix thing\n"
                     "\n** ~feature~\n- def Add thing\n\n")))
 
   (it "separates multiple repos with blank lines"
@@ -218,15 +218,15 @@
                ("/home/user/repo-b" . (("develop" . ("def\0Other thing")))))
              nil)
             :to-equal
-            (concat "* repo-a\n\n** ~main~\n- abc Fix thing\n\n"
-                    "* repo-b\n\n** ~develop~\n- def Other thing\n\n")))
+            (concat "* [[file:/home/user/repo-a][repo-a]]\n\n** ~main~\n- abc Fix thing\n\n"
+                    "* [[file:/home/user/repo-b][repo-b]]\n\n** ~develop~\n- def Other thing\n\n")))
 
   (it "applies link-prefix to commits"
     (expect (magit-standup--format-org
              '(("/home/user/my-repo" . (("main" . ("abc\0Fix thing")))))
              "orgit-rev")
             :to-equal
-            "* my-repo\n\n** ~main~\n- [[orgit-rev:/home/user/my-repo::abc][abc]] Fix thing\n\n")))
+            "* [[file:/home/user/my-repo][my-repo]]\n\n** ~main~\n- [[orgit-rev:/home/user/my-repo::abc][abc]] Fix thing\n\n")))
 
 (describe "magit-standup--gather"
   (before-each
