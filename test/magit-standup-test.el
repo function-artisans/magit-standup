@@ -10,47 +10,18 @@
 (require 'magit-standup)
 
 (describe "magit-standup--since-date"
-  (it "looks back 3 days on Monday (to Friday)"
-    ;; Monday 2026-01-05 12:00:00 UTC — %u = 1
-    (let ((magit-standup-since-days-ago nil))
-      (cl-letf (((symbol-function 'current-time)
-                 (lambda () (encode-time 0 0 12 5 1 2026))))
-        (expect (magit-standup--since-date) :to-equal "2026-01-02"))))
-
-  (it "looks back 1 day on Tuesday"
-    ;; Tuesday 2026-01-06 12:00:00 UTC — %u = 2
-    (let ((magit-standup-since-days-ago nil))
-      (cl-letf (((symbol-function 'current-time)
-                 (lambda () (encode-time 0 0 12 6 1 2026))))
-        (expect (magit-standup--since-date) :to-equal "2026-01-05"))))
-
-  (it "looks back 1 day on Wednesday"
-    ;; Wednesday 2026-01-07 12:00:00 UTC — %u = 3
-    (let ((magit-standup-since-days-ago nil))
-      (cl-letf (((symbol-function 'current-time)
-                 (lambda () (encode-time 0 0 12 7 1 2026))))
-        (expect (magit-standup--since-date) :to-equal "2026-01-06"))))
-
-  (it "looks back to Friday on Saturday (1 day)"
-    ;; Saturday 2026-01-10 12:00:00 UTC — %u = 6
-    (let ((magit-standup-since-days-ago nil))
-      (cl-letf (((symbol-function 'current-time)
-                 (lambda () (encode-time 0 0 12 10 1 2026))))
-        (expect (magit-standup--since-date) :to-equal "2026-01-09"))))
-
-  (it "looks back to Friday on Sunday (2 days)"
-    ;; Sunday 2026-01-11 12:00:00 UTC — %u = 7
-    (let ((magit-standup-since-days-ago nil))
-      (cl-letf (((symbol-function 'current-time)
-                 (lambda () (encode-time 0 0 12 11 1 2026))))
-        (expect (magit-standup--since-date) :to-equal "2026-01-09"))))
-
-  (it "uses custom override when magit-standup-since-days-ago is set"
-    ;; Wednesday 2026-01-07 — would normally be 1 day back
-    (let ((magit-standup-since-days-ago 7))
-      (cl-letf (((symbol-function 'current-time)
-                 (lambda () (encode-time 0 0 12 7 1 2026))))
-        (expect (magit-standup--since-date) :to-equal "2025-12-31")))))
+  (dolist (case '((:desc "looks back 3 days on Monday (to Friday)"  :date "2026-01-05" :expected "2026-01-02")
+                  (:desc "looks back 1 day on Tuesday"              :date "2026-01-06" :expected "2026-01-05")
+                  (:desc "looks back 1 day on Wednesday"            :date "2026-01-07" :expected "2026-01-06")
+                  (:desc "looks back to Friday on Saturday (1 day)" :date "2026-01-10" :expected "2026-01-09")
+                  (:desc "looks back to Friday on Sunday (2 days)"  :date "2026-01-11" :expected "2026-01-09")
+                  (:desc "uses custom override when set"            :date "2026-01-07" :expected "2025-12-31" :override 7)))
+    (it (plist-get case :desc)
+      (let ((magit-standup-since-days-ago (plist-get case :override))
+            (current-time (date-to-time (concat (plist-get case :date) " 12:00:00"))))
+        (cl-letf (((symbol-function 'current-time)
+                   (lambda () current-time)))
+          (expect (magit-standup--since-date) :to-equal (plist-get case :expected)))))))
 
 (describe "magit-standup--detect-link-package"
   (it "returns orgit when orgit is loaded"
