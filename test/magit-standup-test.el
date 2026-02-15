@@ -81,6 +81,27 @@
              "/home/user/repo" '("stale-branch"))
             :to-be nil)))
 
+(describe "magit-standup--resolve-author"
+  (it "uses magit-standup-author when set"
+    (let ((magit-standup-author "alice"))
+      (spy-on 'magit-git-string)
+      (magit-standup--resolve-author "/tmp/repo")
+      (expect 'magit-git-string :not :to-have-been-called)))
+
+  (it "falls back to git config user.email"
+    (let ((magit-standup-author nil))
+      (spy-on 'magit-git-string :and-return-value "bob@example.com")
+      (expect (magit-standup--resolve-author "/tmp/repo")
+              :to-equal "bob@example.com")
+      (expect 'magit-git-string
+              :to-have-been-called-with "config" "user.email")))
+
+  (it "signals error when no author can be determined"
+    (let ((magit-standup-author nil))
+      (spy-on 'magit-git-string :and-return-value nil)
+      (expect (magit-standup--resolve-author "/tmp/repo")
+              :to-throw 'user-error))))
+
 (describe "magit-standup--collect-commits"
   (it "sets default-directory to the repo path"
     (let ((magit-standup-author "alice")
@@ -92,28 +113,7 @@
       (magit-standup--collect-commits "/tmp/my-repo" "2026-01-05")
       (expect captured-dirs :not :to-be nil)
       (dolist (dir captured-dirs)
-        (expect dir :to-equal "/tmp/my-repo/"))))
-
-  (it "uses magit-standup-author when set"
-    (let ((magit-standup-author "alice"))
-      (spy-on 'magit-git-string)
-      (spy-on 'magit-git-lines :and-return-value nil)
-      (magit-standup--collect-commits "/tmp/repo" "2026-01-05")
-      (expect 'magit-git-string :not :to-have-been-called)))
-
-  (it "falls back to git config user.email"
-    (let ((magit-standup-author nil))
-      (spy-on 'magit-git-string :and-return-value "bob@example.com")
-      (spy-on 'magit-git-lines :and-return-value nil)
-      (magit-standup--collect-commits "/tmp/repo" "2026-01-05")
-      (expect 'magit-git-string
-              :to-have-been-called-with "config" "user.email")))
-
-  (it "signals error when no author can be determined"
-    (let ((magit-standup-author nil))
-      (spy-on 'magit-git-string :and-return-value nil)
-      (expect (magit-standup--collect-commits "/tmp/repo" "2026-01-05")
-              :to-throw 'user-error))))
+        (expect dir :to-equal "/tmp/my-repo/")))))
 
 (describe "magit-standup--resolve-repos"
   :var (tmpdir)
