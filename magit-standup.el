@@ -209,8 +209,7 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
        (when formatted
          (concat "* " repo-name "\n\n"
                  (mapconcat #'identity formatted "\n")
-                 "\n"
-                 ))))
+                 "\n"))))
    repo-commits))
 
 (defun magit-standup--gather ()
