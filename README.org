@@ -9,7 +9,8 @@ Collect recent git commits across multiple repositories and format them as org-m
 
 - Scans one or more git repositories for your recent commits
 - Weekday-aware lookback: on Monday (and weekends) looks back to Friday; otherwise looks back 1 day
-- Transient menu lets you override the since-date and repository list before running
+- Transient menu lets you override the since-date, the repository list and the author list before running
+- Filters by several authors at once, which helps when you commit under more than one identity
 - Output is an org-mode buffer with clickable commit links (via [[https://github.com/magit/orgit][orgit]] or [[https://orgmode.org/worg/org-contrib/org-git-link.html][org-git-link]])
 - Directories that aren't git repos are searched recursively for nested repos
 
@@ -43,6 +44,7 @@ Run =M-x magit-standup= to open the transient menu:
 
 - =-d= / =--since== — override the since-date (defaults to the weekday-aware computed date)
 - =-r= / =--repos== — override the repository list
+- =-a= / =--authors== — override the author list (comma-separated)
 - =s= — show the standup buffer
 
 Press =s= to generate the standup notes in a =*magit-standup*= buffer.
@@ -55,9 +57,31 @@ All options can be customized via =M-x customize-group RET magit-standup=.
 |---------------------------------+---------+--------------------------------------------------------------------|
 | =magit-standup-repos=           | =nil=   | List of directories to scan. When nil, uses current repo.          |
 | =magit-standup-repos-max-depth= | =1=     | Max depth to search non-repo directories for nested repos.         |
-| =magit-standup-author=          | =nil=   | Author filter. When nil, uses =git config user.email=.             |
+| =magit-standup-authors=         | =nil=   | List of author filters. When nil, uses =git config user.email=.    |
 | =magit-standup-since-days-ago=  | =nil=   | Fixed lookback override. When nil, weekday-aware logic.            |
 | =magit-standup-link-package=    | =nil=   | Link style: =orgit=, =org-git-link=, =none=, or nil (auto-detect). |
+
+** Authors
+
+Git keeps a commit when it matches one of the entries in
+=magit-standup-authors=. Give every identity you commit under:
+
+#+begin_src emacs-lisp
+(setq magit-standup-authors (list "you@example.com"
+                                  "you@work.example.com"))
+#+end_src
+
+Git applies =.mailmap= to the author filter. If a repository maps your
+commit email to another identity, give the mapped identity here. If you
+get no commits, compare these two commands:
+
+#+begin_src shell
+git log --author=you@example.com --all
+git log --format='%aN <%aE>' -1
+#+end_src
+
+The variable =magit-standup-author= (singular) still works, but it is
+obsolete since version 0.2.0. Use =magit-standup-authors= instead.
 
 * License
 
