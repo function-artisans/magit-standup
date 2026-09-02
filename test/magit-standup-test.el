@@ -81,30 +81,50 @@
              "/home/user/repo" '("stale-branch"))
             :to-be nil)))
 
-(describe "magit-standup--resolve-author"
-  (it "uses magit-standup-author when set"
-    (let ((magit-standup-author "alice"))
+(describe "magit-standup--resolve-authors"
+  (it "uses magit-standup-authors when set"
+    (let ((magit-standup-authors '("alice" "carol")))
       (spy-on 'magit-git-string)
-      (magit-standup--resolve-author "/tmp/repo")
+      (expect (magit-standup--resolve-authors "/tmp/repo")
+              :to-equal '("alice" "carol"))
       (expect 'magit-git-string :not :to-have-been-called)))
 
+  (it "accepts a single string in magit-standup-authors"
+    (let ((magit-standup-authors "alice"))
+      (spy-on 'magit-git-string)
+      (expect (magit-standup--resolve-authors "/tmp/repo")
+              :to-equal '("alice"))))
+
   (it "falls back to git config user.email"
-    (let ((magit-standup-author nil))
+    (let ((magit-standup-authors nil))
       (spy-on 'magit-git-string :and-return-value "bob@example.com")
-      (expect (magit-standup--resolve-author "/tmp/repo")
-              :to-equal "bob@example.com")
+      (expect (magit-standup--resolve-authors "/tmp/repo")
+              :to-equal '("bob@example.com"))
       (expect 'magit-git-string
               :to-have-been-called-with "config" "user.email")))
 
   (it "signals error when no author can be determined"
-    (let ((magit-standup-author nil))
+    (let ((magit-standup-authors nil))
       (spy-on 'magit-git-string :and-return-value nil)
-      (expect (magit-standup--resolve-author "/tmp/repo")
-              :to-throw 'user-error))))
+      (expect (magit-standup--resolve-authors "/tmp/repo")
+              :to-throw 'user-error)))
+
+  (it "prefers the AUTHORS argument over magit-standup-authors"
+    (let ((magit-standup-authors '("alice")))
+      (spy-on 'magit-git-string)
+      (expect (magit-standup--resolve-authors "/tmp/repo" '("carol" "dave"))
+              :to-equal '("carol" "dave"))
+      (expect 'magit-git-string :not :to-have-been-called)))
+
+  (it "prefers the AUTHORS argument over git config user.email"
+    (let ((magit-standup-authors nil))
+      (spy-on 'magit-git-string :and-return-value "bob@example.com")
+      (expect (magit-standup--resolve-authors "/tmp/repo" '("carol"))
+              :to-equal '("carol")))))
 
 (describe "magit-standup--collect-commits"
   (it "sets default-directory to the repo path"
-    (let ((magit-standup-author "alice")
+    (let ((magit-standup-authors '("alice"))
           captured-dirs)
       (spy-on 'magit-git-lines :and-call-fake
               (lambda (&rest _)
@@ -113,7 +133,21 @@
       (magit-standup--collect-commits "/tmp/my-repo" "2026-01-05")
       (expect captured-dirs :not :to-be nil)
       (dolist (dir captured-dirs)
-        (expect dir :to-equal "/tmp/my-repo/")))))
+        (expect dir :to-equal "/tmp/my-repo/"))))
+
+  (it "gives git log one --author flag for each author"
+    (let ((magit-standup-authors '("alice"))
+          captured-args)
+      (spy-on 'magit-git-lines :and-call-fake
+              (lambda (&rest args)
+                (push args captured-args)
+                (when (equal (car args) "branch") (list "main"))))
+      (magit-standup--collect-commits "/tmp/my-repo" "2026-01-05"
+                                      '("carol" "dave"))
+      (expect (flatten-tree (car captured-args))
+              :to-contain "--author=carol")
+      (expect (flatten-tree (car captured-args))
+              :to-contain "--author=dave"))))
 
 (describe "magit-standup--resolve-repos"
   :var (tmpdir)
@@ -251,7 +285,7 @@
       (magit-standup--gather "2026-02-01")
       (expect 'magit-standup--since-date :not :to-have-been-called)
       (expect 'magit-standup--collect-commits
-              :to-have-been-called-with "/tmp/a" "2026-02-01")))
+              :to-have-been-called-with "/tmp/a" "2026-02-01" nil)))
 
   (it "uses provided repos instead of configured ones"
     (let ((magit-standup-repos '("/tmp/should-not-use")))
@@ -265,7 +299,7 @@
       (expect 'magit-standup--since-date :not :to-have-been-called)
       (expect 'magit-standup--resolve-repos :not :to-have-been-called)
       (expect 'magit-standup--collect-commits
-              :to-have-been-called-with "/tmp/override" "2026-03-01"))))
+              :to-have-been-called-with "/tmp/override" "2026-03-01" nil))))
 
 (describe "magit-standup--display"
   (after-each

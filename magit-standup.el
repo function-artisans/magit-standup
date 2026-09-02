@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026 Function Artisans, Ltd.
 
 ;; Author: István Karaszi <ikaraszi@gmail.com>
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "28.1") (magit "4.5.0") (transient "0.8.0"))
 ;; Keywords: tools, vc
 ;; URL: https://github.com/function-artisans/magit-standup
@@ -62,11 +62,17 @@ When nil, search with unlimited depth."
           (integer :tag "Max depth"))
   :group 'magit-standup)
 
-(defcustom magit-standup-author nil
-  "Author name or email to filter commits by.
-When nil, the result of `git config user.email' is used."
-  :type '(choice (const :tag "From git config" nil)
-          (string :tag "Author name/email"))
+(define-obsolete-variable-alias 'magit-standup-author
+  'magit-standup-authors "0.2.0")
+
+(defcustom magit-standup-authors nil
+  "List of author names or emails to filter commits by.
+Git keeps a commit when it matches one of the entries.  When nil,
+the result of `git config user.email' is used.  The `--authors='
+option of the `magit-standup' menu overrides this list for one
+run.  Git applies `.mailmap' to the filter, so use the mapped
+identity when a repository has a `.mailmap' file."
+  :type '(repeat (string :tag "Author name/email"))
   :group 'magit-standup)
 
 (defcustom magit-standup-link-package nil
@@ -157,22 +163,26 @@ the org link prefix string, or nil for plain text."
               hash)
             rest)))
 
-(defun magit-standup--resolve-author (repo-path)
-  "Return the author string to filter commits by in REPO-PATH.
-Uses `magit-standup-author' if set, otherwise falls back to
-`git config user.email' in REPO-PATH."
+(defun magit-standup--resolve-authors (repo-path &optional authors)
+  "Return the list of authors to filter commits by in REPO-PATH.
+Uses AUTHORS if set, then `magit-standup-authors', otherwise falls
+back to `git config user.email' in REPO-PATH.  A single string
+gives a list of one entry."
   (let ((default-directory (file-name-as-directory repo-path)))
-    (or magit-standup-author
-        (magit-git-string "config" "user.email")
-        (user-error "Cannot determine author for %s; set `magit-standup-author' or git config user.email" repo-path))))
+    (or (ensure-list authors)
+        (ensure-list magit-standup-authors)
+        (when-let* ((email (magit-git-string "config" "user.email")))
+          (list email))
+        (user-error "Cannot determine author for %s; set `magit-standup-authors' or git config user.email" repo-path))))
 
-(defun magit-standup--collect-commits (repo-path since-date)
+(defun magit-standup--collect-commits (repo-path since-date &optional authors)
   "Collect commits from REPO-PATH since SINCE-DATE.
+AUTHORS, when non-nil, overrides `magit-standup-authors'.
 Returns an alist of (BRANCH-NAME . COMMITS) where COMMITS is a
 list of raw commit strings with hash and message separated by a
 null byte."
   (let* ((default-directory (file-name-as-directory repo-path))
-         (author (magit-standup--resolve-author repo-path))
+         (author-list (magit-standup--resolve-authors repo-path authors))
          (branches (magit-git-lines "branch" "--format=%(refname:short)")))
     (mapcar (lambda (branch)
               (cons branch
@@ -180,7 +190,9 @@ null byte."
                                      "--no-merges"
                                      "--format=%h%x00%s <%ai> - %aN"
                                      (concat "--after=" since-date)
-                                     (concat "--author=" author)
+                                     (mapcar (lambda (author)
+                                               (concat "--author=" author))
+                                             author-list)
                                      branch)))
             branches)))
 
@@ -220,10 +232,11 @@ LINK-PREFIX is the org link prefix string, or nil for plain text."
                  (mapconcat #'identity formatted "\n")))))
    repo-commits ""))
 
-(defun magit-standup--gather (&optional since-date repos)
+(defun magit-standup--gather (&optional since-date repos authors)
   "Gather recent commits across all configured repositories.
 SINCE-DATE, when non-nil, overrides the computed since date.
 REPOS, when non-nil, overrides `magit-standup-repos'.
+AUTHORS, when non-nil, overrides `magit-standup-authors'.
 Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
 `magit-standup--format-org'."
   (let* ((since-date (or since-date (magit-standup--since-date)))
@@ -232,13 +245,13 @@ Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
                     (list (magit-toplevel)))))
     (mapcar (lambda (repo)
               (cons repo
-                    (magit-standup--collect-commits repo since-date)))
+                    (magit-standup--collect-commits repo since-date authors)))
             repos)))
 
 (defun magit-standup-quit ()
   "Quit the `*magit-standup*' buffer and kill it."
   (interactive)
-  (when-let ((win (get-buffer-window magit-standup--buffer-name)))
+  (when-let* ((win (get-buffer-window magit-standup--buffer-name)))
     (quit-window t win)))
 
 (defun magit-standup--display (repo-commits)
@@ -263,7 +276,7 @@ REPO-COMMITS is an alist as returned by `magit-standup--gather'."
   "Return resolved repo paths as a list of normalized directory names."
   (mapcar (lambda (d) (directory-file-name (expand-file-name d)))
           (or (magit-standup--resolve-repos magit-standup-repos)
-              (when-let ((top (magit-toplevel)))
+              (when-let* ((top (magit-toplevel)))
                 (list top)))))
 
 (defun magit-standup--read-repos (prompt _initial-input _history)
@@ -288,6 +301,25 @@ PROMPT is shown to the user.  Returns a comma-separated string."
   :argument "--repos="
   :reader #'magit-standup--read-repos)
 
+(defun magit-standup--read-authors (prompt _initial-input _history)
+  "Read author names with `completing-read-multiple'.
+PROMPT is shown to the user.  Returns a comma-separated string."
+  (string-join (completing-read-multiple
+                prompt (ensure-list magit-standup-authors))
+               ","))
+
+(transient-define-infix magit-standup--authors ()
+  :description "Authors"
+  :class 'transient-option
+  :shortarg "-a"
+  :argument "--authors="
+  :reader #'magit-standup--read-authors
+  :init-value (lambda (obj)
+                (unless (oref obj value)
+                  (oset obj value
+                        (when magit-standup-authors
+                          (string-join (ensure-list magit-standup-authors) ","))))))
+
 (transient-define-suffix magit-standup--run ()
   "Run the standup with the selected options."
   :key "s"
@@ -296,16 +328,19 @@ PROMPT is shown to the user.  Returns a comma-separated string."
   (let* ((args (transient-args 'magit-standup))
          (since (transient-arg-value "--since=" args))
          (repos-str (transient-arg-value "--repos=" args))
-         (repos (when repos-str (split-string repos-str ","))))
+         (repos (when repos-str (split-string repos-str ",")))
+         (authors-str (transient-arg-value "--authors=" args))
+         (author-list (when authors-str (split-string authors-str "," t))))
     (magit-standup--display
-     (magit-standup--gather since repos))))
+     (magit-standup--gather since repos author-list))))
 
 ;;;###autoload (autoload 'magit-standup "magit-standup" nil t)
 (transient-define-prefix magit-standup ()
   "Show a menu for generating standup notes."
   ["Options"
    (magit-standup--since)
-   (magit-standup--repos)]
+   (magit-standup--repos)
+   (magit-standup--authors)]
   ["Actions"
    ("s" "Show standup" magit-standup--run)])
 
