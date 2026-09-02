@@ -100,7 +100,20 @@
     (let ((magit-standup-author nil))
       (spy-on 'magit-git-string :and-return-value nil)
       (expect (magit-standup--resolve-author "/tmp/repo")
-              :to-throw 'user-error))))
+              :to-throw 'user-error)))
+
+  (it "prefers the AUTHOR argument over magit-standup-author"
+    (let ((magit-standup-author "alice"))
+      (spy-on 'magit-git-string)
+      (expect (magit-standup--resolve-author "/tmp/repo" "carol")
+              :to-equal "carol")
+      (expect 'magit-git-string :not :to-have-been-called)))
+
+  (it "prefers the AUTHOR argument over git config user.email"
+    (let ((magit-standup-author nil))
+      (spy-on 'magit-git-string :and-return-value "bob@example.com")
+      (expect (magit-standup--resolve-author "/tmp/repo" "carol")
+              :to-equal "carol"))))
 
 (describe "magit-standup--collect-commits"
   (it "sets default-directory to the repo path"
@@ -113,7 +126,17 @@
       (magit-standup--collect-commits "/tmp/my-repo" "2026-01-05")
       (expect captured-dirs :not :to-be nil)
       (dolist (dir captured-dirs)
-        (expect dir :to-equal "/tmp/my-repo/")))))
+        (expect dir :to-equal "/tmp/my-repo/"))))
+
+  (it "passes the AUTHOR argument to git log"
+    (let ((magit-standup-author "alice")
+          captured-args)
+      (spy-on 'magit-git-lines :and-call-fake
+              (lambda (&rest args)
+                (push args captured-args)
+                (when (equal (car args) "branch") (list "main"))))
+      (magit-standup--collect-commits "/tmp/my-repo" "2026-01-05" "carol")
+      (expect (car captured-args) :to-contain "--author=carol"))))
 
 (describe "magit-standup--resolve-repos"
   :var (tmpdir)
@@ -251,7 +274,7 @@
       (magit-standup--gather "2026-02-01")
       (expect 'magit-standup--since-date :not :to-have-been-called)
       (expect 'magit-standup--collect-commits
-              :to-have-been-called-with "/tmp/a" "2026-02-01")))
+              :to-have-been-called-with "/tmp/a" "2026-02-01" nil)))
 
   (it "uses provided repos instead of configured ones"
     (let ((magit-standup-repos '("/tmp/should-not-use")))
@@ -265,7 +288,7 @@
       (expect 'magit-standup--since-date :not :to-have-been-called)
       (expect 'magit-standup--resolve-repos :not :to-have-been-called)
       (expect 'magit-standup--collect-commits
-              :to-have-been-called-with "/tmp/override" "2026-03-01"))))
+              :to-have-been-called-with "/tmp/override" "2026-03-01" nil))))
 
 (describe "magit-standup--display"
   (after-each
