@@ -182,7 +182,7 @@ Returns an alist of (BRANCH-NAME . COMMITS) where COMMITS is a
 list of raw commit strings with hash and message separated by a
 null byte."
   (let* ((default-directory (file-name-as-directory repo-path))
-         (authors (magit-standup--resolve-authors repo-path authors))
+         (author-list (magit-standup--resolve-authors repo-path authors))
          (branches (magit-git-lines "branch" "--format=%(refname:short)")))
     (mapcar (lambda (branch)
               (cons branch
@@ -192,7 +192,7 @@ null byte."
                                      (concat "--after=" since-date)
                                      (mapcar (lambda (author)
                                                (concat "--author=" author))
-                                             authors)
+                                             author-list)
                                      branch)))
             branches)))
 
@@ -330,9 +330,9 @@ PROMPT is shown to the user.  Returns a comma-separated string."
          (repos-str (transient-arg-value "--repos=" args))
          (repos (when repos-str (split-string repos-str ",")))
          (authors-str (transient-arg-value "--authors=" args))
-         (authors (when authors-str (split-string authors-str "," t))))
+         (author-list (when authors-str (split-string authors-str "," t))))
     (magit-standup--display
-     (magit-standup--gather since repos authors))))
+     (magit-standup--gather since repos author-list))))
 
 ;;;###autoload (autoload 'magit-standup "magit-standup" nil t)
 (transient-define-prefix magit-standup ()
