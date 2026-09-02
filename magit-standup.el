@@ -244,7 +244,7 @@ Returns an alist of (REPO-PATH . BRANCH-COMMITS) suitable for
 (defun magit-standup-quit ()
   "Quit the `*magit-standup*' buffer and kill it."
   (interactive)
-  (when-let ((win (get-buffer-window magit-standup--buffer-name)))
+  (when-let* ((win (get-buffer-window magit-standup--buffer-name)))
     (quit-window t win)))
 
 (defun magit-standup--display (repo-commits)
@@ -269,7 +269,7 @@ REPO-COMMITS is an alist as returned by `magit-standup--gather'."
   "Return resolved repo paths as a list of normalized directory names."
   (mapcar (lambda (d) (directory-file-name (expand-file-name d)))
           (or (magit-standup--resolve-repos magit-standup-repos)
-              (when-let ((top (magit-toplevel)))
+              (when-let* ((top (magit-toplevel)))
                 (list top)))))
 
 (defun magit-standup--read-repos (prompt _initial-input _history)
