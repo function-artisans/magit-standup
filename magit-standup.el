@@ -43,6 +43,8 @@
 (require 'magit)
 (require 'transient)
 
+(declare-function evil-local-set-key "evil-core" (state key def))
+
 (defgroup magit-standup nil
   "Collect recent git commits for standup notes."
   :group 'magit
