@@ -11,8 +11,7 @@ on:
         options: [major, minor, patch]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: release-prepare
@@ -23,10 +22,19 @@ jobs:
     name: Open the version bump pull request
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       BUMP: ${{ inputs.bump }}
     steps:
+      - name: Check the token
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "Add a personal access token as the RELEASE_TOKEN secret." >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Compute the new version
         id: version
@@ -53,36 +61,21 @@ jobs:
           grep -qx "         \"${NEW}\"" Easkfile
           git --no-pager diff
 
-      - uses: jcs090218/setup-emacs@master
-        with:
-          version: '28.1'
-
-      - uses: emacs-eask/setup-eask@master
-        with:
-          version: 'snapshot'
-
-      - name: Check the raised version
-        run: |
-          eask package
-          eask install-deps
-          eask compile
-          eask lint package
-          eask test buttercup
-
       - name: Open the pull request
         env:
           CURRENT: ${{ steps.version.outputs.current }}
           NEW: ${{ steps.version.outputs.new }}
         run: |
-          branch="release/v${NEW}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "${branch}"
+          actor_id="$(gh api "users/${GITHUB_ACTOR}" --jq '.id')"
+          actor_name="$(gh api "users/${GITHUB_ACTOR}" --jq '.name // .login')"
+          git config user.name "${actor_name}"
+          git config user.email "${actor_id}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git switch -c "release/v${NEW}"
           git commit -am "Bump the version to ${NEW}"
-          git push -u origin "${branch}"
+          git push -u origin "release/v${NEW}"
           gh pr create \
             --base main \
-            --head "${branch}" \
+            --head "release/v${NEW}" \
             --label chore \
             --title "Bump the version to ${NEW}" \
-            --body "This pull request raises the version from ${CURRENT} to ${NEW}. The checks ran on the raised version before this pull request was opened. When you merge it, a workflow creates the tag v${NEW} and publishes the release with the generated notes."
+            --body "This pull request raises the version from ${CURRENT} to ${NEW}. When you merge it, a workflow creates the tag v${NEW} and publishes the release with the generated notes."
