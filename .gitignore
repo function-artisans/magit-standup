@@ -4,3 +4,9 @@
 .eask/
 .cask/
 dist/
+
+# Nix and devenv
+/.devenv/
+/.devenv.flake.nix
+/devenv.local.nix
+/.direnv/

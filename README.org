@@ -83,6 +83,19 @@ git log --format='%aN <%aE>' -1
 The variable =magit-standup-author= (singular) still works, but it is
 obsolete since version 0.2.0. Use =magit-standup-authors= instead.
 
+* Development
+
+The project uses [[https://devenv.sh/][devenv]]. It gives you Emacs and
+[[https://emacs-eask.github.io/][Eask]].
+
+#+begin_src shell
+devenv shell     # open a shell with the tools
+devenv test      # compile, lint and test
+#+end_src
+
+With [[https://direnv.net/][direnv]], run =direnv allow= once. The tools then
+load when you enter the directory.
+
 * Release
 
 To make a release, run:
