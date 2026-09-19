@@ -43,6 +43,15 @@ jobs:
           echo "current=${current}" >> "${GITHUB_OUTPUT}"
           echo "new=${new}" >> "${GITHUB_OUTPUT}"
 
+      - name: Check that the release branch is free
+        env:
+          NEW: ${{ steps.version.outputs.new }}
+        run: |
+          if git ls-remote --exit-code --heads origin "release/v${NEW}" >/dev/null 2>&1; then
+            echo "The branch release/v${NEW} already exists. Delete it and run again." >&2
+            exit 1
+          fi
+
       - name: Raise the version
         env:
           NEW: ${{ steps.version.outputs.new }}
