@@ -1,0 +1,26 @@
+changelog:
+  categories:
+    - title: Features
+      labels: [feat]
+    - title: Fixes
+      labels: [fix]
+    - title: Performance
+      labels: [perf]
+    - title: Reverts
+      labels: [revert]
+    - title: Documentation
+      labels: [docs]
+    - title: Refactors
+      labels: [refactor]
+    - title: Style
+      labels: [style]
+    - title: Tests
+      labels: [test]
+    - title: Build
+      labels: [build]
+    - title: Continuous integration
+      labels: [ci]
+    - title: Chores
+      labels: [chore]
+    - title: Other changes
+      labels: ["*"]
