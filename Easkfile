@@ -1,3 +1,5 @@
+;; -*- mode: eask; lexical-binding: t -*-
+
 (package "magit-standup"
          "0.3.0"
          "Collect recent git commits for standup notes")
