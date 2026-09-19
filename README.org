@@ -83,6 +83,26 @@ git log --format='%aN <%aE>' -1
 The variable =magit-standup-author= (singular) still works, but it is
 obsolete since version 0.2.0. Use =magit-standup-authors= instead.
 
+* Release
+
+To make a release, run:
+
+#+begin_src shell
+make release VERSION=0.3.0
+#+end_src
+
+The target runs the linter and the tests. Then it creates the branch
+=release/v0.3.0= and commits the new version. Push the branch and open
+a pull request:
+
+#+begin_src shell
+git push -u origin release/v0.3.0
+gh pr create --fill --label chore
+#+end_src
+
+When you merge the pull request, a workflow creates the tag and
+publishes the release with the generated notes.
+
 * License
 
 GPL-3.0-or-later
