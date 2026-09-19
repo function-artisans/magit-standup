@@ -1,0 +1,81 @@
+name: Prepare a release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to raise
+        type: choice
+        required: true
+        default: patch
+        options: [major, minor, patch]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-prepare
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Open the version bump pull request
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BUMP: ${{ inputs.bump }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute the new version
+        id: version
+        run: |
+          current="$(sed -n 's/^;; Version: \(.*\)$/\1/p' magit-standup.el)"
+          IFS=. read -r major minor patch <<< "${current}"
+          case "${BUMP}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+            *) echo "Unknown bump: ${BUMP}" >&2; exit 1 ;;
+          esac
+          new="${major}.${minor}.${patch}"
+          echo "current=${current}" >> "${GITHUB_OUTPUT}"
+          echo "new=${new}" >> "${GITHUB_OUTPUT}"
+
+      - name: Raise the version
+        env:
+          NEW: ${{ steps.version.outputs.new }}
+        run: |
+          sed -i "s/^;; Version: .*/;; Version: ${NEW}/" magit-standup.el
+          sed -i "2s/\"[0-9][0-9.]*\"/\"${NEW}\"/" Easkfile
+          grep -qx ";; Version: ${NEW}" magit-standup.el
+          grep -qx "         \"${NEW}\"" Easkfile
+          git --no-pager diff
+
+      - name: Commit the raised version
+        env:
+          NEW: ${{ steps.version.outputs.new }}
+        run: |
+          actor_id="$(gh api "users/${GITHUB_ACTOR}" --jq '.id')"
+          actor_name="$(gh api "users/${GITHUB_ACTOR}" --jq '.name // .login')"
+          export GIT_AUTHOR_NAME="${actor_name}"
+          export GIT_AUTHOR_EMAIL="${actor_id}+${GITHUB_ACTOR}@users.noreply.github.com"
+          export GIT_COMMITTER_NAME="github-actions[bot]"
+          export GIT_COMMITTER_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "release/v${NEW}"
+          git commit -am "Bump the version to ${NEW}"
+          git --no-pager log -1 --format='author: %an <%ae>%ncommitter: %cn <%ce>'
+          git push -u origin "release/v${NEW}"
+
+      - name: Open the pull request
+        env:
+          CURRENT: ${{ steps.version.outputs.current }}
+          NEW: ${{ steps.version.outputs.new }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "release/v${NEW}" \
+            --label chore \
+            --title "Bump the version to ${NEW}" \
+            --body "This pull request raises the version from ${CURRENT} to ${NEW}. When you merge it, a workflow creates the tag v${NEW} and publishes the release with the generated notes."
