@@ -97,7 +97,7 @@ a pull request:
 
 #+begin_src shell
 git push -u origin release/v0.3.0
-gh pr create --fill --label chore
+gh pr create --fill --label release
 #+end_src
 
 When you merge the pull request, a workflow creates the tag and

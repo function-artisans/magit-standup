@@ -32,5 +32,5 @@ release: lint test
 	@echo
 	@echo "Next:"
 	@echo "  git push -u origin release/v$(VERSION)"
-	@echo "  gh pr create --fill --label chore"
+	@echo "  gh pr create --fill --label release"
 	@echo "Merge it, and the workflow makes the tag and the release."
