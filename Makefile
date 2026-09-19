@@ -25,7 +25,7 @@ release: lint test
 	git switch -c release/v$(VERSION)
 	sed 's/^;; Version: .*/;; Version: $(VERSION)/' magit-standup.el > magit-standup.el.new
 	mv magit-standup.el.new magit-standup.el
-	sed '2s/"[0-9][0-9.]*"/"$(VERSION)"/' Easkfile > Easkfile.new
+	sed 's/^\( *\)"[0-9][0-9.]*"$$/\1"$(VERSION)"/' Easkfile > Easkfile.new
 	mv Easkfile.new Easkfile
 	@grep -qx ";; Version: $(VERSION)" magit-standup.el
 	@grep -qx '         "$(VERSION)"' Easkfile
