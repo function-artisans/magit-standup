@@ -1,5 +1,5 @@
 (package "magit-standup"
-         "0.2.0"
+         "0.3.0"
          "Collect recent git commits for standup notes")
 
 (website-url "https://github.com/function-artisans/magit-standup")
