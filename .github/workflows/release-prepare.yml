@@ -53,9 +53,8 @@ jobs:
           grep -qx "         \"${NEW}\"" Easkfile
           git --no-pager diff
 
-      - name: Open the pull request
+      - name: Commit the raised version
         env:
-          CURRENT: ${{ steps.version.outputs.current }}
           NEW: ${{ steps.version.outputs.new }}
         run: |
           actor_id="$(gh api "users/${GITHUB_ACTOR}" --jq '.id')"
@@ -68,6 +67,12 @@ jobs:
           git commit -am "Bump the version to ${NEW}"
           git --no-pager log -1 --format='author: %an <%ae>%ncommitter: %cn <%ce>'
           git push -u origin "release/v${NEW}"
+
+      - name: Open the pull request
+        env:
+          CURRENT: ${{ steps.version.outputs.current }}
+          NEW: ${{ steps.version.outputs.new }}
+        run: |
           gh pr create \
             --base main \
             --head "release/v${NEW}" \
