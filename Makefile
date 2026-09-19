@@ -10,6 +10,7 @@
 
 lint: .deps
 	eask lint package
+	eask lint checkdoc
 
 test: .compile
 	eask test buttercup
