@@ -43,8 +43,6 @@
 (require 'magit)
 (require 'transient)
 
-(declare-function evil-local-set-key "evil-core" (state key def))
-
 (defgroup magit-standup nil
   "Collect recent git commits for standup notes."
   :group 'magit
@@ -271,7 +269,8 @@ REPO-COMMITS is an alist as returned by `magit-standup--gather'."
       (goto-char (point-min))
       (org-mode)
       (read-only-mode 1)
-      (when (bound-and-true-p evil-mode)
+      (when (and (bound-and-true-p evil-mode)
+                 (fboundp 'evil-local-set-key))
         (evil-local-set-key 'normal "q" #'magit-standup-quit)))
     (pop-to-buffer buf)))
 
