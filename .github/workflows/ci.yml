@@ -18,7 +18,9 @@ jobs:
       - uses: emacs-eask/setup-eask@master
         with:
           version: 'snapshot'
-      - run: eask package
+      # package-build from MELPA needs Emacs 29.1 or later.
+      - if: matrix.emacs_version != '28.1'
+        run: eask package
       - run: eask install-deps
       - run: eask compile
       - run: eask lint package
