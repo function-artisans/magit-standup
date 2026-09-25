@@ -1,6 +1,8 @@
 #+title: magit-standup
 #+author: István Karaszi
 
+[[https://melpa.org/#/magit-standup][file:https://melpa.org/packages/magit-standup-badge.svg]]
+
 Collect recent git commits across multiple repositories and format them as org-mode standup notes.
 
 [[file:screenshots/standup-buffer.png]]
@@ -22,11 +24,58 @@ Collect recent git commits across multiple repositories and format them as org-m
 
 * Installation
 
-** With use-package and straight.el
+** From MELPA
+
+The package is on [[https://melpa.org/#/magit-standup][MELPA]]. If you do not
+have MELPA in =package-archives=, add it first:
+
+#+begin_src emacs-lisp
+(require 'package)
+(add-to-list 'package-archives
+             '("melpa" . "https://melpa.org/packages/") t)
+#+end_src
+
+Then install the package:
+
+#+begin_example
+M-x package-refresh-contents RET
+M-x package-install RET magit-standup RET
+#+end_example
+
+** With use-package
 
 #+begin_src emacs-lisp
 (use-package magit-standup
-  :straight (:host github :repo "function-artisans/magit-standup"))
+  :ensure t
+  :custom
+  (magit-standup-repos '("~/Projects"))
+  (magit-standup-authors '("you@example.com")))
+#+end_src
+
+** With Doom Emacs
+
+Add the package to =~/.config/doom/packages.el=:
+
+#+begin_src emacs-lisp
+(package! magit-standup)
+#+end_src
+
+Configure the package in =~/.config/doom/config.el=:
+
+#+begin_src emacs-lisp
+(use-package! magit-standup
+  :defer t
+  :config
+  (setq magit-standup-repos '("~/Projects")
+        magit-standup-authors '("you@example.com")))
+#+end_src
+
+Run =doom sync= and restart Emacs.
+
+** With straight.el
+
+#+begin_src emacs-lisp
+(straight-use-package 'magit-standup)
 #+end_src
 
 ** Manual
