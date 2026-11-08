@@ -19,7 +19,7 @@
 
   enterTest = ''
     eask install-deps
-    eask compile
+    eask --strict compile
     eask --strict lint package
     eask --strict lint regexps
     eask --strict lint declare

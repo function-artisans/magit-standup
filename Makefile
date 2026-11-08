@@ -5,12 +5,12 @@
 	@touch .deps
 
 .compile: .deps magit-standup.el
-	eask compile
+	eask --strict compile
 	@touch .compile
 
 lint: .deps
-	eask lint package
-	eask lint checkdoc
+	eask --strict lint package
+	eask --strict lint checkdoc
 
 test: .compile
 	eask test buttercup
