@@ -20,7 +20,10 @@
   enterTest = ''
     eask install-deps
     eask compile
-    eask lint package
+    eask --strict lint package
+    eask --strict lint regexps
+    eask --strict lint declare
+    eask --strict lint org README.org
     eask test buttercup
   '';
 }
