@@ -11,7 +11,7 @@ jobs:
       matrix:
         emacs_version: ['28.1', '29.4', '30.2', '31.1']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: jcs090218/setup-emacs@master
         with:
           version: ${{ matrix.emacs_version }}
@@ -22,6 +22,6 @@ jobs:
       - if: matrix.emacs_version != '28.1'
         run: eask package
       - run: eask install-deps
-      - run: eask compile
-      - run: eask lint package
+      - run: eask --strict compile
+      - run: eask --strict lint package
       - run: eask test buttercup
