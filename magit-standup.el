@@ -98,6 +98,12 @@ back to Friday (3 days), otherwise look back 1 day."
 
 (defconst magit-standup--buffer-name "*magit-standup*")
 
+(defconst magit-standup--friday 5
+  "The ISO 8601 number of Friday, as `format-time-string' \"%u\" gives it.")
+
+(defconst magit-standup--saturday 6
+  "The ISO 8601 number of Saturday, as `format-time-string' \"%u\" gives it.")
+
 (defun magit-standup--since-date ()
   "Return the \"since\" date string for filtering commits.
 If `magit-standup-since-days-ago' is set, use it.  Otherwise,
@@ -106,7 +112,8 @@ on weekends look back to Friday; on Monday look back to Friday
   (let* ((now (current-time))
          (day (string-to-number (format-time-string "%u" now)))
          (days-ago (cond (magit-standup-since-days-ago magit-standup-since-days-ago)
-                         ((<= 6 day) (- day 5))
+                         ((<= magit-standup--saturday day)
+                          (- day magit-standup--friday))
                          ((= 1 day) 3)
                          (t 1))))
     (format-time-string "%Y-%m-%d"
