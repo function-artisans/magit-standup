@@ -34,6 +34,11 @@
                (lambda (f) (eq f 'org-git-link))))
       (expect (magit-standup--detect-link-package) :to-be 'org-git-link)))
 
+  (it "returns git-link when git-link is loaded"
+    (cl-letf (((symbol-function 'featurep)
+               (lambda (f) (eq f 'git-link))))
+      (expect (magit-standup--detect-link-package) :to-be 'git-link)))
+
   (it "returns nil when nothing is loaded"
     (cl-letf (((symbol-function 'featurep)
                (lambda (_) nil)))
@@ -46,11 +51,33 @@
   (it "returns git for org-git-link"
     (expect (magit-standup--link-prefix 'org-git-link) :to-equal "git"))
 
+  (it "returns https for git-link"
+    (expect (magit-standup--link-prefix 'git-link) :to-equal "https"))
+
   (it "returns nil for none"
     (expect (magit-standup--link-prefix 'none) :to-be nil))
 
   (it "returns nil for nil"
     (expect (magit-standup--link-prefix nil) :to-be nil)))
+
+(describe "magit-standup--git-link-url"
+  (it "calls git-link-commit without its side effects"
+    (cl-letf (((symbol-function 'git-link-commit)
+               (lambda ()
+                 (interactive)
+                 (list git-link-add-to-kill-ring
+                       git-link-open-in-browser
+                       current-prefix-arg
+                       (thing-at-point 'word)
+                       default-directory))))
+      (let ((current-prefix-arg '(4)))
+        (expect (magit-standup--git-link-url "/home/user/repo" "abc1234")
+                :to-equal '(nil nil nil "abc1234" "/home/user/repo/")))))
+
+  (it "returns nil when git-link-commit signals a user-error"
+    (cl-letf (((symbol-function 'git-link-commit)
+               (lambda () (interactive) (user-error "Remote `origin' not found"))))
+      (expect (magit-standup--git-link-url "/home/user/repo" "abc1234") :to-be nil))))
 
 (describe "magit-standup--format-commit"
   (it "formats with orgit-rev link"
@@ -60,6 +87,17 @@
   (it "formats with git link"
     (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice" "git")
             :to-equal "[[git:/home/user/repo::abc123][abc123]] Fix bug <2026-01-05> Alice"))
+
+  (it "formats with https link"
+    (spy-on 'magit-standup--git-link-url :and-return-value "https://github.com/user/repo/commit/abc123")
+    (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice" "https")
+            :to-equal "[[https://github.com/user/repo/commit/abc123][abc123]] Fix bug <2026-01-05> Alice")
+    (expect 'magit-standup--git-link-url :to-have-been-called-with "/home/user/repo" "abc123"))
+
+  (it "formats as plain text when git-link has no URL"
+    (spy-on 'magit-standup--git-link-url :and-return-value nil)
+    (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice" "https")
+            :to-equal "abc123 Fix bug <2026-01-05> Alice"))
 
   (it "formats as plain text when link-prefix is omitted"
     (expect (magit-standup--format-commit "/home/user/repo" "abc123\0Fix bug <2026-01-05> Alice")
@@ -303,7 +341,7 @@
 
 (describe "magit-standup--display"
   (after-each
-    (when-let ((buf (get-buffer magit-standup--buffer-name)))
+    (when-let* ((buf (get-buffer magit-standup--buffer-name)))
       (kill-buffer buf)))
 
   (it "creates a buffer with org-mode content"

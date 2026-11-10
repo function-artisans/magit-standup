@@ -43,6 +43,10 @@
 (require 'magit)
 (require 'transient)
 
+(declare-function git-link-commit "ext:git-link")
+(defvar git-link-add-to-kill-ring)
+(defvar git-link-open-in-browser)
+
 (defgroup magit-standup nil
   "Collect recent git commits for standup notes."
   :group 'magit
@@ -78,13 +82,15 @@ identity when a repository has a `.mailmap' file."
 
 (defcustom magit-standup-link-package nil
   "Package to use for linking commit hashes in org output.
-When nil, auto-detect by checking if `orgit' or `org-git-link'
-is loaded.  When `orgit', use orgit-rev links.  When
-`org-git-link', use git links.  When `none', plain text
-without links."
+When nil, auto-detect by checking if `orgit', `org-git-link' or
+`git-link' is loaded.  When `orgit', use orgit-rev links.  When
+`org-git-link', use git links.  When `git-link', use https links
+to the web page of the commit.  When `none', plain text without
+links."
   :type '(choice (const :tag "Auto-detect" nil)
           (const :tag "orgit" orgit)
           (const :tag "org-git-link" org-git-link)
+          (const :tag "git-link" git-link)
           (const :tag "Plain text" none))
   :group 'magit-standup)
 
@@ -144,18 +150,52 @@ searched recursively up to `magit-standup-repos-max-depth'."
 (defun magit-standup--detect-link-package ()
   "Detect which git-link package is available.
 Returns `orgit' if orgit is loaded, `org-git-link' if
-org-git-link is loaded, or nil if neither is available."
+org-git-link is loaded, `git-link' if git-link is loaded, or nil
+if none is available."
   (cond
    ((featurep 'orgit) 'orgit)
-   ((featurep 'org-git-link) 'org-git-link)))
+   ((featurep 'org-git-link) 'org-git-link)
+   ((featurep 'git-link) 'git-link)))
+
+(defconst magit-standup--web-link-prefix "https"
+  "The link prefix that links a commit to its web page.")
 
 (defun magit-standup--link-prefix (package)
   "Return the org link type string for PACKAGE.
-PACKAGE should be `orgit', `org-git-link', or nil."
+PACKAGE should be `orgit', `org-git-link', `git-link', or nil."
   (pcase package
     ('orgit "orgit-rev")
     ('org-git-link "git")
+    ('git-link magit-standup--web-link-prefix)
     (_ nil)))
+
+(defun magit-standup--git-link-url (repo-path hash)
+  "Return the web URL of commit HASH in REPO-PATH.
+Return nil if git-link does not support the remote of REPO-PATH."
+  ;; `git-link-commit' is a command: it reads the hash at point and copies the URL.
+  ;; shortcut: git-link finds the remote again for each commit (about 15 ms).
+  (let ((default-directory (file-name-as-directory repo-path))
+        (git-link-add-to-kill-ring nil)
+        (git-link-open-in-browser nil)
+        (current-prefix-arg nil)
+        (inhibit-message t)
+        (message-log-max nil))
+    (with-temp-buffer
+      (insert hash)
+      (goto-char (point-min))
+      (ignore-error user-error
+        (call-interactively #'git-link-commit)))))
+
+(defun magit-standup--format-hash (repo-path hash link-prefix)
+  "Format HASH of REPO-PATH as an org link of type LINK-PREFIX.
+Return HASH as plain text if there is no link to make."
+  (cond
+   ((null link-prefix) hash)
+   ((equal link-prefix magit-standup--web-link-prefix)
+    (if-let* ((url (magit-standup--git-link-url repo-path hash)))
+        (format "[[%s][%s]]" url hash)
+      hash))
+   (t (format "[[%s:%s::%s][%s]]" link-prefix repo-path hash hash))))
 
 (defun magit-standup--format-commit (repo-path line &optional link-prefix)
   "Format a commit LINE, optionally as an org link.
@@ -166,9 +206,7 @@ the org link prefix string, or nil for plain text."
          (hash (car parts))
          (rest (cadr parts)))
     (format "%s %s"
-            (if link-prefix
-                (format "[[%s:%s::%s][%s]]" link-prefix repo-path hash hash)
-              hash)
+            (magit-standup--format-hash repo-path hash link-prefix)
             rest)))
 
 (defun magit-standup--resolve-authors (repo-path &optional authors)
